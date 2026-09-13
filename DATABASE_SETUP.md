@@ -36,11 +36,12 @@ postgresql://[USERNAME]:[PASSWORD]@[HOST]:[PORT]/[DATABASE_NAME]?[PARAMETERS]
 
 **Connection String Examples (Supabase):**
 
-- **Connection Pooler (Recommended):**
+- **Connection Pooler & Direct URL (Recommended for Prisma):**
   ```env
-  DATABASE_URL="postgresql://postgres.your-project-ref:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+  DATABASE_URL="postgresql://postgres.your-project-ref:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+  DIRECT_URL="postgresql://postgres.your-project-ref:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
   ```
-- **Direct Connection:**
+- **Direct Connection Only:**
   ```env
   DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.your-project-ref.supabase.co:5432/postgres?sslmode=require"
   ```
