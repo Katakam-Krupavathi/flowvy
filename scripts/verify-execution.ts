@@ -299,14 +299,14 @@ async function runVerification() {
   const exported = exportWorkflowAsTemplate(
     "Custom Test Template",
     "A custom test workflow export",
-    "Automation",
-    ["test", "export"],
+    "Conditional Automation",
     instNodes,
-    instEdges
+    instEdges,
+    ["test", "export"]
   );
 
   assert.strictEqual(exported.name, "Custom Test Template");
-  assert.strictEqual(exported.category, "Automation");
+  assert.strictEqual(exported.category, "Conditional Automation");
   assert.strictEqual(exported.nodes.length, instNodes.length);
   assert.strictEqual(exported.edges.length, instEdges.length);
   console.log("  ✅ Template library instantiation, remapping, and export verified\n");
