@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns } from "@/lib/workflow-execution";
 import { cropImageFF } from "@/lib/tasks/crop-image";
 import { extractFrameFF } from "@/lib/tasks/extract-frame";
+import { executeHttpRequest } from "@/lib/tasks/http-request";
 import { callLLM } from "@/lib/llm";
 
 const executeSchema = z.object({
@@ -236,6 +237,47 @@ export async function POST(request: NextRequest) {
                   model: result.model || model,
                   provider: result.provider,
                   usage: result.usage,
+                };
+                break;
+              }
+              case "httpRequest": {
+                const url =
+                  (inputs.url as string) ??
+                  (inputs.input as string) ??
+                  rfNode.data?.url ??
+                  "";
+                const method =
+                  (inputs.method as string) ??
+                  rfNode.data?.method ??
+                  "GET";
+                const headers =
+                  inputs.headers ??
+                  rfNode.data?.headers ??
+                  undefined;
+                const body =
+                  inputs.body ??
+                  rfNode.data?.body ??
+                  undefined;
+                const timeout =
+                  Number(inputs.timeout ?? rfNode.data?.timeout ?? 15000);
+
+                const result = await executeHttpRequest({
+                  url,
+                  method,
+                  headers,
+                  body,
+                  timeout,
+                });
+
+                if (!result.success) {
+                  throw new Error(result.error || `HTTP request failed (${result.status || "network error"})`);
+                }
+
+                outputs = {
+                  output: result.output,
+                  status: result.status,
+                  headers: result.headers,
+                  data: result.data,
                 };
                 break;
               }
