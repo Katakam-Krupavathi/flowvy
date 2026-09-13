@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Workflow Builder - Weavy Clone",
-  description: "LLM Workflow Builder with React Flow",
+  title: "Flowvy - Visual AI Workflow Builder",
+  description: "Visual AI & Media Workflow Builder with React Flow",
 };
 
 export default function RootLayout({

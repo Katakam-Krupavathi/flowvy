@@ -1,18 +1,19 @@
-# Weavy.ai Workflow Builder Clone
+# Flowvy
 
-A pixel-perfect UI/UX clone of Weavy.ai's workflow builder, focused on LLM workflows using React Flow, Google Gemini API, and Trigger.dev.
+An intuitive visual workflow builder for AI and multimedia processing pipelines, powered by React Flow, Google Gemini API, and Trigger.dev.
 
 ## Features
 
-- 🎨 Pixel-perfect UI matching Weavy.ai's design
+- 🎨 Sleek, modern canvas interface with dark theme styling
 - 🔐 Clerk authentication with protected routes
-- 🔄 6 node types: Text, Upload Image, Upload Video, LLM, Crop Image, Extract Frame
-- 🌊 React Flow canvas with dot grid background and minimap
-- 📊 Workflow history with node-level execution details
-- ⚡ Parallel execution for independent workflow branches
-- 🔒 Type-safe connections with DAG validation
-- 💾 Workflow persistence to PostgreSQL
-- 🎯 Trigger.dev integration for all node executions
+- 🔄 6 extensible node types: Text, Upload Image, Upload Video, LLM, Crop Image, Extract Frame
+- 🌊 React Flow interactive canvas with dot grid background and minimap
+- 📊 Workflow run history with node-level execution details
+- ⚡ Concurrent/parallel execution for independent workflow branches
+- 🔒 Type-safe connections with DAG validation (cycle prevention)
+- 💾 Workflow persistence and JSON export/import
+- 🎯 Asynchronous task execution with Trigger.dev and Google Gemini
+
 
 ## Tech Stack
 

@@ -147,7 +147,7 @@ Update `app/api/transloadit/upload/route.ts` with actual Transloadit upload logi
 
 ## Features Implemented
 
-✅ Pixel-perfect UI matching Weavy.ai
+✅ Sleek, modern Flowvy UI
 ✅ Clerk authentication with protected routes
 ✅ 6 node types fully functional
 ✅ React Flow canvas with dot grid
