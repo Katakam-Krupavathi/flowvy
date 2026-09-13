@@ -6,9 +6,11 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 
 - 🎨 Sleek, modern canvas interface with dark theme styling
 - 🔐 Clerk authentication with protected routes
-- 🔄 6 extensible node types: Text, Upload Image, Upload Video, LLM, Crop Image, Extract Frame
+- 🔄 8 extensible node types: Text, Upload Image, Upload Video, Run Any LLM (Gemini / OpenAI / Anthropic), Crop Image, Extract Frame, HTTP Request, Condition / Branch
 - 🌊 React Flow interactive canvas with dot grid background and minimap
-- 📊 Workflow run history with node-level execution details
+- 📡 Real-time execution status via **Server-Sent Events (SSE)** (nodes light up live as steps execute)
+- 📊 Workflow run history with node-level execution details and lifetime token/cost analytics ($ USD)
+- 🔀 Dynamic branching DAG execution with automatic branch pruning for true automation logic
 - ⚡ Concurrent/topological execution for multi-branch workflows
 - 🔒 Type-safe connections with DAG validation (cycle prevention)
 - 💾 Workflow persistence and JSON export/import
