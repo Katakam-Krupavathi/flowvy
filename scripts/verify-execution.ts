@@ -235,7 +235,51 @@ async function runVerification() {
   assert.ok(falseDescendants.has("node-false-leaf"), "Downstream leaf on false branch should be pruned when true is chosen");
   assert.strictEqual(falseDescendants.has("node-true-branch"), false);
 
-  console.log("  ✅ Condition evaluation & DAG branch pruning verified\n");
+  // 7. Test workflow event hub and subscription
+  console.log("  Step 7: Testing workflow event hub and subscription...");
+  const { emitWorkflowEvent, subscribeWorkflowEvents } = await import("../lib/events");
+
+  const testWorkflowId = "wf-test-sse-123";
+  const receivedEvents: any[] = [];
+
+  const unsubscribe = subscribeWorkflowEvents(testWorkflowId, (evt) => {
+    receivedEvents.push(evt);
+  });
+
+  emitWorkflowEvent({
+    type: "workflow:start",
+    workflowId: testWorkflowId,
+    runId: "run-test-1",
+    status: "RUNNING",
+  });
+
+  emitWorkflowEvent({
+    type: "node:start",
+    workflowId: testWorkflowId,
+    runId: "run-test-1",
+    nodeId: "node-llm-1",
+    nodeType: "llm",
+    status: "RUNNING",
+  });
+
+  emitWorkflowEvent({
+    type: "node:complete",
+    workflowId: testWorkflowId,
+    runId: "run-test-1",
+    nodeId: "node-llm-1",
+    nodeType: "llm",
+    status: "SUCCESS",
+    outputs: { output: "Generated response" },
+  });
+
+  assert.strictEqual(receivedEvents.length, 3, "Should receive 3 emitted events");
+  assert.strictEqual(receivedEvents[0].type, "workflow:start");
+  assert.strictEqual(receivedEvents[1].type, "node:start");
+  assert.strictEqual(receivedEvents[2].type, "node:complete");
+  assert.strictEqual(receivedEvents[2].outputs.output, "Generated response");
+
+  unsubscribe();
+  console.log("  ✅ Real-time workflow event subscription and streaming verified\n");
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }
