@@ -68,6 +68,7 @@ export default function LeftSidebar() {
       icon: Brain,
       onClick: () =>
         createNode("llm", "Run Any LLM", {
+          provider: "gemini",
           model: "gemini-1.5-flash",
           outputType: "text",
           outputTypes: { output: "text" },
