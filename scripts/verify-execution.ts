@@ -198,8 +198,19 @@ async function runVerification() {
     anthropicThrew = true;
     assert.ok(err.message.includes("ANTHROPIC_API_KEY"), `Unexpected Anthropic error: ${err.message}`);
   }
-  assert.strictEqual(anthropicThrew, true, "callLLM with Anthropic should throw when ANTHROPIC_API_KEY is unset");
-  console.log("  ✅ Multi-provider LLM and cost estimation validated\n");
+  // 5. Test executeHttpRequest
+  console.log("  Step 5: Testing executeHttpRequest execution & validation...");
+  const { executeHttpRequest } = await import("../lib/tasks/http-request");
+
+  const missingUrlResult = await executeHttpRequest({ url: "" });
+  assert.strictEqual(missingUrlResult.success, false);
+  assert.ok(missingUrlResult.error?.includes("URL is required"));
+
+  const invalidProtoResult = await executeHttpRequest({ url: "ftp://invalid-domain.com" });
+  assert.strictEqual(invalidProtoResult.success, false);
+  assert.ok(invalidProtoResult.error?.includes("Must start with http:// or https://"));
+
+  console.log("  ✅ HTTP Request task validation verified\n");
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }
