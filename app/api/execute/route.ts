@@ -4,10 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns } from "@/lib/workflow-execution";
+import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns, findDownstreamDescendants } from "@/lib/workflow-execution";
 import { cropImageFF } from "@/lib/tasks/crop-image";
 import { extractFrameFF } from "@/lib/tasks/extract-frame";
 import { executeHttpRequest } from "@/lib/tasks/http-request";
+import { evaluateCondition } from "@/lib/tasks/conditional";
 import { callLLM } from "@/lib/llm";
 
 const executeSchema = z.object({
@@ -89,9 +90,10 @@ export async function POST(request: NextRequest) {
       try {
         const plan = createExecutionPlan(nodes, edges, selectedNodes);
         const nodeOutputs = new Map<string, Record<string, any>>();
+        const skippedNodeIds = new Set<string>();
 
         for (const nodeId of plan.executionOrder) {
-          if (!selectedNodes.includes(nodeId)) continue;
+          if (!selectedNodes.includes(nodeId) || skippedNodeIds.has(nodeId)) continue;
           const rfNode = nodes.find((n) => n.id === nodeId);
           if (!rfNode) continue;
 
@@ -278,6 +280,51 @@ export async function POST(request: NextRequest) {
                   status: result.status,
                   headers: result.headers,
                   data: result.data,
+                };
+                break;
+              }
+              case "conditional": {
+                const value =
+                  inputs.value ??
+                  inputs.input ??
+                  rfNode.data?.value ??
+                  "";
+                const operator =
+                  (inputs.operator as any) ??
+                  rfNode.data?.operator ??
+                  "equals";
+                const compareValue =
+                  inputs.compare_value ??
+                  inputs.compareValue ??
+                  rfNode.data?.compareValue ??
+                  "";
+
+                const condResult = evaluateCondition({
+                  value,
+                  operator,
+                  compareValue,
+                });
+
+                // Prune the inactive branch: any node directly attached to the unmatched handle
+                // and its descendants will be skipped
+                const inactiveHandle = condResult.matchedBranch === "true" ? "false" : "true";
+                const inactiveEdges = edges.filter(
+                  (e: any) => e.source === nodeId && e.sourceHandle === inactiveHandle
+                );
+
+                for (const inEdge of inactiveEdges) {
+                  skippedNodeIds.add(inEdge.target);
+                  const descendants = findDownstreamDescendants(inEdge.target, edges);
+                  for (const descId of descendants) {
+                    skippedNodeIds.add(descId);
+                  }
+                }
+
+                outputs = {
+                  result: condResult.result,
+                  matchedBranch: condResult.matchedBranch,
+                  output: String(value),
+                  value,
                 };
                 break;
               }
