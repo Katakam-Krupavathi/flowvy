@@ -14,7 +14,8 @@ export type NodeType =
   | "uploadVideo"
   | "llm"
   | "cropImage"
-  | "extractFrame";
+  | "extractFrame"
+  | "httpRequest";
 
 export interface WorkflowData {
   nodes: WorkflowNode[];
@@ -146,3 +147,21 @@ export interface ExtractFrameNodeData {
     timestamp: boolean;
   };
 }
+
+export interface HttpRequestNodeData {
+  url?: string;
+  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+  headers?: string;
+  body?: string;
+  timeout?: number;
+  status?: number;
+  response?: string;
+  output?: string;
+  running?: boolean;
+  connected?: {
+    url?: boolean;
+    headers?: boolean;
+    body?: boolean;
+  };
+}
+
