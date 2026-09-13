@@ -9,6 +9,7 @@ import { cropImageFF } from "@/lib/tasks/crop-image";
 import { extractFrameFF } from "@/lib/tasks/extract-frame";
 import { executeHttpRequest } from "@/lib/tasks/http-request";
 import { evaluateCondition } from "@/lib/tasks/conditional";
+import { emitWorkflowEvent } from "@/lib/events";
 import { callLLM } from "@/lib/llm";
 
 const executeSchema = z.object({
@@ -87,6 +88,13 @@ export async function POST(request: NextRequest) {
     // Core execution runner
     const executeWorkflowPromise = async () => {
       const start = Date.now();
+      emitWorkflowEvent({
+        type: "workflow:start",
+        workflowId: workflow.id,
+        runId: run.id,
+        status: "RUNNING",
+      });
+
       try {
         const plan = createExecutionPlan(nodes, edges, selectedNodes);
         const nodeOutputs = new Map<string, Record<string, any>>();
@@ -99,6 +107,16 @@ export async function POST(request: NextRequest) {
 
           const nodeType = rfNode.data?.nodeType || rfNode.type || "unknown";
           const inputs = collectNodeInputs(nodeId, nodes, edges, nodeOutputs);
+
+          emitWorkflowEvent({
+            type: "node:start",
+            workflowId: workflow.id,
+            runId: run.id,
+            nodeId,
+            nodeType,
+            status: "RUNNING",
+            inputs,
+          });
 
           const nodeRun = await prisma.nodeRun.create({
             data: {
@@ -346,6 +364,18 @@ export async function POST(request: NextRequest) {
                 completedAt: new Date(),
               },
             });
+
+            emitWorkflowEvent({
+              type: "node:complete",
+              workflowId: workflow.id,
+              runId: run.id,
+              nodeId,
+              nodeType,
+              status: "SUCCESS",
+              outputs,
+              usage: outputs?.usage,
+              duration: Date.now() - nodeStart,
+            });
           } catch (err: any) {
             errorMsg = err?.message || "Execution failed";
             await prisma.nodeRun.update({
@@ -357,26 +387,56 @@ export async function POST(request: NextRequest) {
                 completedAt: new Date(),
               },
             });
+
+            emitWorkflowEvent({
+              type: "node:error",
+              workflowId: workflow.id,
+              runId: run.id,
+              nodeId,
+              nodeType,
+              status: "FAILED",
+              error: errorMsg,
+              duration: Date.now() - nodeStart,
+            });
             throw err;
           }
         }
 
+        const totalDuration = Date.now() - start;
         await prisma.workflowRun.update({
           where: { id: run.id },
           data: {
             status: "SUCCESS",
-            duration: Date.now() - start,
+            duration: totalDuration,
             completedAt: new Date(),
           },
         });
+
+        emitWorkflowEvent({
+          type: "workflow:complete",
+          workflowId: workflow.id,
+          runId: run.id,
+          status: "SUCCESS",
+          duration: totalDuration,
+        });
       } catch (err: any) {
+        const totalDuration = Date.now() - start;
         await prisma.workflowRun.update({
           where: { id: run.id },
           data: {
             status: "FAILED",
-            duration: Date.now() - start,
+            duration: totalDuration,
             completedAt: new Date(),
           },
+        });
+
+        emitWorkflowEvent({
+          type: "workflow:complete",
+          workflowId: workflow.id,
+          runId: run.id,
+          status: "FAILED",
+          error: err?.message || "Workflow execution failed",
+          duration: totalDuration,
         });
       }
     };
