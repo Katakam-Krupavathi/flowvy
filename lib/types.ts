@@ -96,13 +96,22 @@ export interface UploadVideoNodeData {
   connected?: boolean;
 }
 
+export type LLMProvider = "gemini" | "openai" | "anthropic";
+
 export interface LLMNodeData {
+  provider?: LLMProvider;
   model: string;
   systemPrompt?: string;
   userMessage?: string;
   images?: string[];
   response?: string;
   running?: boolean;
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    estimatedCost?: number;
+  };
   connected?: {
     systemPrompt: boolean;
     userMessage: boolean;
