@@ -278,8 +278,38 @@ async function runVerification() {
   assert.strictEqual(receivedEvents[2].type, "node:complete");
   assert.strictEqual(receivedEvents[2].outputs.output, "Generated response");
 
-  unsubscribe();
-  console.log("  ✅ Real-time workflow event subscription and streaming verified\n");
+  // 8. Test Template Library export & instantiation
+  console.log("  Step 8: Testing Template Library export & instantiation...");
+  const { STARTER_TEMPLATES, instantiateTemplate, exportWorkflowAsTemplate } = await import("../lib/templates");
+
+  assert.ok(STARTER_TEMPLATES.length >= 4, "Should have at least 4 curated starter templates");
+
+  const starterTpl = STARTER_TEMPLATES[0];
+  const { nodes: instNodes, edges: instEdges } = instantiateTemplate(starterTpl);
+
+  assert.strictEqual(instNodes.length, starterTpl.nodes.length, "Instantiated node count must match template");
+  assert.strictEqual(instEdges.length, starterTpl.edges.length, "Instantiated edge count must match template");
+  
+  // Ensure new node IDs are generated and edges are remapped
+  const originalNodeIds = new Set(starterTpl.nodes.map((n) => n.id));
+  instNodes.forEach((node) => {
+    assert.strictEqual(originalNodeIds.has(node.id), false, "Instantiated nodes must have fresh unique IDs");
+  });
+
+  const exported = exportWorkflowAsTemplate(
+    "Custom Test Template",
+    "A custom test workflow export",
+    "Automation",
+    ["test", "export"],
+    instNodes,
+    instEdges
+  );
+
+  assert.strictEqual(exported.name, "Custom Test Template");
+  assert.strictEqual(exported.category, "Automation");
+  assert.strictEqual(exported.nodes.length, instNodes.length);
+  assert.strictEqual(exported.edges.length, instEdges.length);
+  console.log("  ✅ Template library instantiation, remapping, and export verified\n");
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }
