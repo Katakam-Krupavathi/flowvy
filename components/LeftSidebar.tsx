@@ -1,7 +1,7 @@
 "use client";
 
 import { useWorkflowStore } from "@/lib/store";
-import { Plus, FileText, Image, Video, Brain, Crop, Film } from "lucide-react";
+import { Plus, FileText, Image, Video, Brain, Crop, Film, Globe } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Node } from "reactflow";
@@ -105,6 +105,26 @@ export default function LeftSidebar() {
           outputType: "image",
           outputTypes: { output: "image" },
           inputType: "video",
+        }),
+    },
+    {
+      type: "httpRequest",
+      label: "HTTP Request",
+      icon: Globe,
+      onClick: () =>
+        createNode("httpRequest", "HTTP Request", {
+          url: "",
+          method: "GET",
+          headers: "",
+          body: "",
+          outputType: "text",
+          outputTypes: { output: "text" },
+          inputType: "text",
+          inputTypes: {
+            url: "text",
+            headers: "text",
+            body: "text",
+          },
         }),
     },
   ];
