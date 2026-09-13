@@ -1,142 +1,148 @@
-# Database Setup Guide
+# Database Setup & Configuration Guide
 
-## What is DATABASE_URL?
-
-The `DATABASE_URL` is a PostgreSQL connection string that tells your application how to connect to your database. It follows this format:
-
-```
-postgresql://USERNAME:PASSWORD@HOST:PORT/DATABASE_NAME?schema=SCHEMA_NAME
-```
-
-## Option 1: Supabase (Recommended - Free Tier Available)
-
-### Steps:
-1. Go to [https://supabase.com](https://supabase.com)
-2. Sign up for a free account (GitHub login available)
-3. Click "New Project"
-4. Fill in project details:
-   - **Name**: your-project-name
-   - **Database Password**: create a strong password (SAVE THIS!)
-   - **Region**: choose closest to you
-   - Click "Create new project" (takes 1-2 minutes)
-
-### Get Your Connection String:
-1. Once your project is ready, go to **Settings** (gear icon) → **Database**
-2. Scroll down to **Connection string** section
-3. Under **Connection pooling** tab, copy the **URI** connection string
-4. It will look like:
-   ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
-   ```
-5. **Important**: Replace `[YOUR-PASSWORD]` with the actual password you set during project creation
-
-### Example DATABASE_URL from Supabase:
-```
-postgresql://postgres.xxxxx:your-actual-password@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require
-```
-
-Or if using direct connection:
-```
-postgresql://postgres:your-actual-password@db.xxxxx.supabase.co:5432/postgres
-```
+This guide covers everything you need to configure, connect, and troubleshoot PostgreSQL database connections for the workflow builder.
 
 ---
 
-## Option 2: Neon (Recommended - Free Tier Available)
+## 1. What is `DATABASE_URL`?
 
-### Steps:
-1. Go to [https://neon.tech](https://neon.tech)
-2. Sign up for a free account (GitHub login available)
-3. Click "Create a project"
-4. Fill in project details:
-   - **Name**: your-project-name
-   - **Region**: choose closest to you
-   - Click "Create project"
+`DATABASE_URL` is the connection string Prisma and PostgreSQL use to connect to your database instance. It follows this standard URI format:
 
-### Get Your Connection String:
-1. Once created, you'll see the connection string directly on the dashboard
-2. It will look like:
-   ```
-   postgresql://username:password@ep-xxxxx.us-east-2.aws.neon.tech/neondb?sslmode=require
-   ```
-3. Click the "Copy" button next to the connection string
-
-### Example DATABASE_URL from Neon:
 ```
-postgresql://username:password@ep-xxxxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+postgresql://[USERNAME]:[PASSWORD]@[HOST]:[PORT]/[DATABASE_NAME]?[PARAMETERS]
 ```
+
+### Breakdown of Connection Components:
+- **`USERNAME`**: Database user (e.g. `postgres` for direct Supabase, or `postgres.your-project-ref` for Supabase pooler).
+- **`PASSWORD`**: Your database password (URL-encoded if containing special characters).
+- **`HOST`**: Server hostname (e.g. `aws-0-us-west-1.pooler.supabase.com`, `ep-xxxxx.us-east-2.aws.neon.tech`, or `localhost`).
+- **`PORT`**: Connection port (`5432` for direct PostgreSQL, `6543` for Supabase pooler).
+- **`DATABASE_NAME`**: The specific database name (typically `postgres` or `workflow_db`).
+- **`PARAMETERS`**: Query parameters such as `?sslmode=require` or `?schema=public`.
 
 ---
 
-## Option 3: Local PostgreSQL
+## 2. Setting Up Your Database
 
-If you have PostgreSQL installed locally:
+### Option A: Supabase (Cloud - Recommended)
 
-### Format:
-```
-postgresql://username:password@localhost:5432/database_name?schema=public
-```
+1. Sign up or log in at [supabase.com](https://supabase.com).
+2. Create a new project, enter a project name, and set a secure database password (**save this password**).
+3. Once provisioned, open **Settings** (⚙️) → **Database**.
+4. In the **Connection string** section:
+   - Select the **Connection pooling** tab.
+   - Set the mode to **Session** (recommended for Prisma).
+   - Copy the URI connection string.
 
-### Steps:
-1. Make sure PostgreSQL is installed and running
-2. Create a new database:
-   ```sql
-   CREATE DATABASE workflow_db;
-   ```
-3. Your DATABASE_URL would be:
-   ```
-   postgresql://postgres:your-local-password@localhost:5432/workflow_db?schema=public
-   ```
+**Connection String Examples (Supabase):**
+
+- **Connection Pooler (Recommended):**
+  ```env
+  DATABASE_URL="postgresql://postgres.your-project-ref:YOUR_PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
+  ```
+- **Direct Connection:**
+  ```env
+  DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@db.your-project-ref.supabase.co:5432/postgres?sslmode=require"
+  ```
 
 ---
 
-## How to Add It to Your .env File
+### Option B: Neon (Serverless Postgres)
 
-1. Open or create `.env` file in your project root
-2. Add the DATABASE_URL like this:
+1. Sign up or log in at [neon.tech](https://neon.tech).
+2. Create a new project and select your preferred cloud region.
+3. From the project dashboard, copy the provided connection string.
 
+**Connection String Example (Neon):**
 ```env
-DATABASE_URL="postgresql://postgres:your-password@db.xxxxx.supabase.co:5432/postgres"
-```
-
-**Important Notes:**
-- Keep the quotes around the URL
-- Replace all placeholder values with your actual credentials
-- Never commit your `.env` file to git (it's already in `.gitignore`)
-- Keep your password secure!
-
----
-
-## Testing Your Connection
-
-After setting up your DATABASE_URL, test it by running:
-
-```bash
-npx prisma db push
-```
-
-This will:
-1. Connect to your database
-2. Create all the necessary tables based on your Prisma schema
-
-If successful, you'll see:
-```
-✔ Generated Prisma Client
-✔ Pushed database schema to database
+DATABASE_URL="postgresql://your_user:YOUR_PASSWORD@ep-sample-pool-123456.us-east-2.aws.neon.tech/neondb?sslmode=require"
 ```
 
 ---
 
-## Troubleshooting
+### Option C: Local PostgreSQL
 
-### Connection Error?
-- **Check your password**: Make sure you replaced `[YOUR-PASSWORD]` with your actual password
-- **Check SSL mode**: Some providers require `?sslmode=require` at the end
-- **Check firewall**: Make sure your IP is allowed (Supabase/Neon usually allows all by default)
-- **Check credentials**: Verify username, password, host, and database name are correct
+If running PostgreSQL locally on your machine or inside Docker:
 
-### Still Having Issues?
-1. Make sure PostgreSQL is running (if using local)
-2. Check your internet connection
-3. Verify the connection string format is correct
-4. Try using the connection pooler URL (for Supabase) instead of direct connection
+1. Ensure PostgreSQL is installed and running:
+   ```bash
+   # Create a local database
+   psql -U postgres -c "CREATE DATABASE workflow_db;"
+   ```
+2. Configure your local `.env`:
+   ```env
+   DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/workflow_db?schema=public"
+   ```
+
+---
+
+## 3. Connection Pooler vs. Direct Connection
+
+| Feature | Connection Pooler (Port 6543) | Direct Connection (Port 5432) |
+| :--- | :--- | :--- |
+| **Primary Host Format** | `aws-0-[region].pooler.supabase.com` | `db.[project-ref].supabase.co` |
+| **Username Format** | `postgres.[project-ref]` | `postgres` |
+| **Best For** | Serverless functions, Next.js API routes | Long-running servers, schema migrations |
+| **IPv4 / Network Compatibility** | High (Works across standard IPv4 networks) | Requires IPv6 or Supabase IPv4 add-on |
+| **Connection Limits** | Manages thousands of pooled client connections | Limited by database compute tier |
+
+> **Recommendation**: For Next.js and serverless deployments, use the Supabase **Connection Pooler** on port `6543` with Session mode.
+
+---
+
+## 4. Password URL-Encoding Rules
+
+Database connection strings are parsed as URIs. If your database password contains special characters, they **must be percent-encoded (URL-encoded)** to prevent connection parse errors.
+
+### Common Special Character Encodings:
+
+| Character | URL Encoded Value | Example Plaintext | Example Encoded in URL |
+| :---: | :---: | :--- | :--- |
+| `@` | `%40` | `Secret@123` | `Secret%40123` |
+| `#` | `%23` | `Pass#2024` | `Pass%232024` |
+| `$` | `%24` | `Cash$Flow` | `Cash%24Flow` |
+| `%` | `%25` | `Rate%99` | `Rate%2599` |
+| `&` | `%26` | `Rock&Roll` | `Rock%26Roll` |
+| `+` | `%2B` | `Plus+One` | `Plus%2BOne` |
+| `=` | `%3D` | `Key=Value` | `Key%3DValue` |
+| `/` | `%2F` | `Path/User` | `Path%2FUser` |
+| `:` | `%3A` | `Time:12` | `Time%3A12` |
+| `?` | `%3F` | `Why?Not` | `Why%3FNot` |
+
+> **Tip**: If you prefer to avoid URL encoding altogether, choose an alphanumeric password or reset the database password in your provider's dashboard using only alphanumeric characters.
+
+---
+
+## 5. Applying Schema & Testing Connection
+
+1. Copy `.env.example` to `.env` and configure `DATABASE_URL`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Generate the Prisma Client and push your database schema:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+3. Verify connection status:
+   - When running locally, visit `http://localhost:3000/api/db/health` to confirm the database health check passes.
+
+---
+
+## 6. Common Connection Errors & Troubleshooting
+
+### 1. `P1001: Can't reach database server at db.xxxxx.supabase.co:5432`
+- **Cause**: Direct connection endpoint cannot be reached (often due to IPv6 routing or network firewall).
+- **Fix**: Switch to the Supabase connection pooler host (`aws-0-[region].pooler.supabase.com:6543`) with username format `postgres.[project-ref]`.
+
+### 2. `Tenant or user not found`
+- **Cause**: Username is missing the project reference when connecting through the pooler, or region prefix is incorrect.
+- **Fix**: Verify your pooler username is formatted as `postgres.your-project-ref` and the hostname matches your Supabase region (e.g. `aws-0-us-west-1.pooler.supabase.com`).
+
+### 3. `Authentication failed for user`
+- **Cause**: The password was entered incorrectly or contains unencoded special characters like `@`.
+- **Fix**: Ensure special characters in the password are percent-encoded (e.g., replace `@` with `%40`), or reset the password in the Supabase/Neon dashboard.
+
+### 4. `SSL connection error` or `Connection timeout`
+- **Cause**: Missing SSL requirement parameters for cloud databases.
+- **Fix**: Append `?sslmode=require` to the end of your `DATABASE_URL`.

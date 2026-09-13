@@ -167,6 +167,16 @@ Deploy to Vercel:
 3. Add environment variables in Vercel dashboard
 4. Deploy!
 
+## Troubleshooting
+
+### Gemini API Models
+- The application uses `gemini-1.5-flash` by default (replacing legacy `gemini-pro`).
+- Ensure your `GOOGLE_AI_API_KEY` is active and copied directly from [Google AI Studio](https://makersuite.google.com/app/apikey) into `.env`.
+- You can test your key and inspect available models by visiting `http://localhost:3000/api/test-models`.
+
+### Database Connection
+- If you encounter database connection errors (e.g. `P1001`, `Tenant or user not found`, or password decoding issues), refer to the detailed [Database Setup & Troubleshooting Guide](DATABASE_SETUP.md).
+
 ## License
 
 MIT
