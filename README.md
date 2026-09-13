@@ -155,15 +155,14 @@ File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. S
 - **Workflow Persistence**: Save/load workflows to database
 - **Export/Import**: Export workflows as JSON
 
-## Workflow History
+## Workflow History & Cost Analytics
 
-The right sidebar shows:
-- List of all workflow runs with timestamps
-- Execution scope (full/partial/single)
-- Status indicators (success/failed/running)
-- Node-level execution details when clicking a run
-- Inputs/outputs for each node execution
-- Automatic cleanup of stale interrupted runs
+The right sidebar provides real-time insights into your workflow runs:
+- **Lifetime Analytics**: Aggregated total tokens processed and cumulative estimated expenditure ($ USD)
+- **Per-Run Cost Badges**: Token consumption and USD pricing breakdown calculated using actual model pricing tiers
+- **Execution Scopes**: Distinguish between full workflow, partial branch, and single-node debug runs
+- **Node-Level Inspector**: Drill down into inputs, outputs, errors, token usage, and durations for each executed step
+- **Automatic Stale Cleanup**: Proactive cleanup of interrupted runs older than 15 minutes
 
 ## Sample Workflow
 
