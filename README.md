@@ -132,6 +132,12 @@ File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. S
 - Configurable timestamp parameter (seconds or percentage)
 - Extracts a single frame as image via FFmpeg
 
+### HTTP Request Node (Generic API Integration)
+- **Universal REST Client**: Make arbitrary `GET`, `POST`, `PUT`, `DELETE`, `PATCH` calls to external APIs and webhooks
+- **Configurable Headers & Payload**: Set custom authorization headers, query parameters, and JSON payloads
+- **Piped Outputs**: Returns parsed JSON response data and status codes, allowing any 3rd-party service to connect seamlessly to downstream LLM and media nodes
+- **Safety & Timeout**: Built-in 15s timeout guard with `AbortController` and protocol verification
+
 ## Workflow Features
 
 - **Drag & Drop Nodes**: Add nodes from sidebar to canvas
