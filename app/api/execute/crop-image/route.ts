@@ -2,10 +2,10 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { cropImageFF } from "@/trigger/crop-image-task";
+import { cropImageFF } from "@/lib/tasks/crop-image";
 
 const cropSchema = z.object({
-  imageUrl: z.string().url(),
+  imageUrl: z.string(),
   xPercent: z.number().min(0).max(100),
   yPercent: z.number().min(0).max(100),
   widthPercent: z.number().min(1).max(100),
@@ -29,12 +29,14 @@ export async function POST(request: NextRequest) {
       widthPercent: data.widthPercent,
       heightPercent: data.heightPercent,
     });
+
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || "Failed to crop image" },
         { status: 500 }
       );
     }
+
     return NextResponse.json({ success: true, outputUrl: result.outputUrl });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

@@ -4,16 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { createExecutionPlan, collectNodeInputs } from "@/lib/workflow-execution";
-import { cropImageFF } from "@/trigger/crop-image-task";
-import { extractFrameFF } from "@/trigger/extract-frame-task";
-import { runLLM } from "@/trigger/llm-task";
+import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns } from "@/lib/workflow-execution";
+import { cropImageFF } from "@/lib/tasks/crop-image";
+import { extractFrameFF } from "@/lib/tasks/extract-frame";
+import { runLLM } from "@/lib/tasks/llm";
 
 const executeSchema = z.object({
   workflowId: z.string(),
   nodeIds: z.array(z.string()).optional(),
   nodes: z.any().optional(),
   edges: z.any().optional(),
+  sync: z.boolean().optional(), // Allow synchronous execution mode when requested
 });
 
 export async function POST(request: NextRequest) {
@@ -32,8 +33,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Proactively clean up any stale runs older than 15 minutes
+    cleanupStaleRuns().catch((e) => console.error("Stale run cleanup error:", e));
+
     const body = await request.json();
-    const { workflowId, nodeIds, nodes: reqNodes, edges: reqEdges } = executeSchema.parse(body);
+    const { workflowId, nodeIds, nodes: reqNodes, edges: reqEdges, sync } = executeSchema.parse(body);
 
     // Fetch workflow
     const workflow = await prisma.workflow.findFirst({
@@ -78,8 +82,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Start execution asynchronously
-    ;(async () => {
+    // Core execution runner
+    const executeWorkflowPromise = async () => {
       const start = Date.now();
       try {
         const plan = createExecutionPlan(nodes, edges, selectedNodes);
@@ -280,9 +284,21 @@ export async function POST(request: NextRequest) {
           },
         });
       }
-    })();
+    };
 
-    return NextResponse.json({ runId: run.id, run });
+    if (sync) {
+      await executeWorkflowPromise();
+      const finalRun = await prisma.workflowRun.findUnique({
+        where: { id: run.id },
+        include: { nodeRuns: true },
+      });
+      return NextResponse.json({ runId: run.id, run: finalRun });
+    } else {
+      executeWorkflowPromise().catch((err) => {
+        console.error("Async workflow execution unhandled error:", err);
+      });
+      return NextResponse.json({ runId: run.id, run });
+    }
   } catch (error: any) {
     console.error("Error executing workflow:", error);
     if (error instanceof z.ZodError) {

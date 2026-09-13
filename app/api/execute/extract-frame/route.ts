@@ -1,10 +1,11 @@
+export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { extractFrameFF } from "@/trigger/extract-frame-task";
+import { extractFrameFF } from "@/lib/tasks/extract-frame";
 
 const extractFrameSchema = z.object({
-  videoUrl: z.string().url(),
+  videoUrl: z.string(),
   timestamp: z.string(),
 });
 
@@ -23,12 +24,14 @@ export async function POST(request: NextRequest) {
       videoUrl: data.videoUrl,
       timestamp: data.timestamp,
     });
+
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || "Failed to extract frame" },
         { status: 500 }
       );
     }
+
     return NextResponse.json({ success: true, outputUrl: result.outputUrl });
   } catch (error: any) {
     console.error("Error extracting frame:", error);

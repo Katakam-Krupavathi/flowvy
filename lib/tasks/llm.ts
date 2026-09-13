@@ -1,4 +1,3 @@
-import { task } from "@trigger.dev/sdk/v3";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface RunLLMPayload {
@@ -88,7 +87,7 @@ export async function runLLM(payload: RunLLMPayload): Promise<RunLLMResult> {
       }
     }
 
-    // Try primary model using SDK
+    // Try primary model using SDK with fallbacks if needed
     const candidateModels = Array.from(
       new Set([modelName, "gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash"])
     );
@@ -115,11 +114,9 @@ export async function runLLM(payload: RunLLMPayload): Promise<RunLLMResult> {
       } catch (err: any) {
         lastError = err;
         const msg = err?.message || "";
-        // Continue to fallback candidate if model not found
         if (msg.includes("404") || msg.toLowerCase().includes("not found")) {
           continue;
         }
-        // If other error, throw to outer catch
         throw err;
       }
     }
@@ -142,18 +139,3 @@ export async function runLLM(payload: RunLLMPayload): Promise<RunLLMResult> {
     };
   }
 }
-
-export const runLLMTask = task({
-  id: "run-llm",
-  run: async (
-    payload: {
-      model?: string;
-      systemPrompt?: string;
-      userMessage: string;
-      images?: string[];
-    },
-    { ctx }
-  ) => {
-    return await runLLM(payload);
-  },
-});

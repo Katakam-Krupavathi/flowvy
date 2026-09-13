@@ -1,4 +1,3 @@
-import { task } from "@trigger.dev/sdk/v3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobePath from "ffprobe-static";
@@ -17,29 +16,22 @@ async function getImageBuffer(imageUrl: string): Promise<Buffer> {
   return Buffer.from(await imageResponse.arrayBuffer());
 }
 
-export const cropImageTask = task({
-  id: "crop-image",
-  run: async (
-    payload: {
-      imageUrl: string;
-      xPercent: number;
-      yPercent: number;
-      widthPercent: number;
-      heightPercent: number;
-    },
-    { ctx }
-  ) => {
-    return await cropImageFF(payload);
-  },
-});
-
-export async function cropImageFF(payload: {
+export interface CropImagePayload {
   imageUrl: string;
   xPercent: number;
   yPercent: number;
   widthPercent: number;
   heightPercent: number;
-}): Promise<{ success: boolean; outputUrl?: string; error?: string; duration: number }> {
+}
+
+export interface CropImageResult {
+  success: boolean;
+  outputUrl?: string;
+  error?: string;
+  duration: number;
+}
+
+export async function cropImageFF(payload: CropImagePayload): Promise<CropImageResult> {
   const startTime = Date.now();
   const inFile = join(tmpdir(), `crop-input-${Date.now()}-${Math.random().toString(36).substring(7)}.png`);
   const outFile = join(tmpdir(), `crop-output-${Date.now()}-${Math.random().toString(36).substring(7)}.png`);
@@ -69,7 +61,7 @@ export async function cropImageFF(payload: {
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inFile)
-        .outputOptions([`-vf crop=${sw}:${sh}:${sx}:${sy}`])
+        .outputOptions(["-y", `-vf crop=${sw}:${sh}:${sx}:${sy}`, "-vframes 1"])
         .output(outFile)
         .on("end", () => resolve())
         .on("error", (err) => reject(err))

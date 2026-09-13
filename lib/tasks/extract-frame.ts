@@ -1,4 +1,3 @@
-import { task } from "@trigger.dev/sdk/v3";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobePath from "ffprobe-static";
@@ -19,23 +18,19 @@ async function getVideoBuffer(videoUrl: string): Promise<Buffer> {
   return Buffer.from(await videoResp.arrayBuffer());
 }
 
-export const extractFrameTask = task({
-  id: "extract-frame",
-  run: async (
-    payload: {
-      videoUrl: string;
-      timestamp: string;
-    },
-    { ctx }
-  ) => {
-    return await extractFrameFF(payload);
-  },
-});
-
-export async function extractFrameFF(payload: {
+export interface ExtractFramePayload {
   videoUrl: string;
   timestamp: string;
-}): Promise<{ success: boolean; outputUrl?: string; error?: string; duration: number }> {
+}
+
+export interface ExtractFrameResult {
+  success: boolean;
+  outputUrl?: string;
+  error?: string;
+  duration: number;
+}
+
+export async function extractFrameFF(payload: ExtractFramePayload): Promise<ExtractFrameResult> {
   const startTime = Date.now();
   const inFile = join(tmpdir(), `frame-input-${Date.now()}-${Math.random().toString(36).substring(7)}.mp4`);
   const outFile = join(tmpdir(), `frame-output-${Date.now()}-${Math.random().toString(36).substring(7)}.png`);
@@ -68,7 +63,7 @@ export async function extractFrameFF(payload: {
       ffmpeg(inFile)
         .seekInput(timestampSeconds)
         .frames(1)
-        .outputOptions(["-f image2"])
+        .outputOptions(["-y", "-f image2", "-vframes 1"])
         .output(outFile)
         .on("end", () => resolve())
         .on("error", (err) => reject(err))

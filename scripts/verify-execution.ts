@@ -1,6 +1,6 @@
 import assert from "assert";
-import { cropImageFF } from "../trigger/crop-image-task";
-import { extractFrameFF } from "../trigger/extract-frame-task";
+import { cropImageFF } from "../lib/tasks/crop-image";
+import { extractFrameFF } from "../lib/tasks/extract-frame";
 import { createExecutionPlan, collectNodeInputs } from "../lib/workflow-execution";
 
 // Valid 100x100 red PNG image as base64 data URI

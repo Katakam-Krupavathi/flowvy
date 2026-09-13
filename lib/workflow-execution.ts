@@ -72,27 +72,27 @@ export function collectNodeInputs(
     let value: any = null;
 
     // Extract value from source node based on node type
-    switch (sourceNode.data.nodeType) {
+    switch (sourceNode.data?.nodeType || sourceNode.type) {
       case "text":
-        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data.text ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.text ?? "";
         break;
       case "uploadImage":
-        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data.imageUrl ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data?.imageUrl ?? "";
         break;
       case "uploadVideo":
-        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data.videoUrl ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data?.videoUrl ?? "";
         break;
       case "llm":
-        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data.response ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.response ?? "";
         break;
       case "cropImage":
-        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data.outputUrl ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data?.outputUrl ?? "";
         break;
       case "extractFrame":
-        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data.outputUrl ?? "";
+        value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data?.outputUrl ?? "";
         break;
       default:
-        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data.output ?? sourceNode.data;
+        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data;
     }
 
     // Handle multiple inputs of the same type (e.g., multiple images)
@@ -120,4 +120,56 @@ export function isNodeReady(
 ): boolean {
   if (dependencies.length === 0) return true;
   return dependencies.every((dep) => completedNodes.has(dep));
+}
+
+/**
+ * Automatically cleans up stale RUNNING workflow runs and node runs that timed out
+ */
+export async function cleanupStaleRuns(maxAgeMinutes: number = 15): Promise<number> {
+  try {
+    const { prisma } = await import("./db");
+    const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+
+    const staleRuns = await prisma.workflowRun.findMany({
+      where: {
+        status: "RUNNING",
+        startedAt: {
+          lt: cutoff,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (staleRuns.length === 0) return 0;
+
+    const runIds = staleRuns.map((r) => r.id);
+
+    await prisma.nodeRun.updateMany({
+      where: {
+        runId: { in: runIds },
+        status: "RUNNING",
+      },
+      data: {
+        status: "FAILED",
+        error: "Execution timed out (stale run cleanup)",
+        completedAt: new Date(),
+      },
+    });
+
+    const updateResult = await prisma.workflowRun.updateMany({
+      where: {
+        id: { in: runIds },
+        status: "RUNNING",
+      },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+      },
+    });
+
+    return updateResult.count;
+  } catch (err) {
+    console.error("Error during stale run cleanup:", err);
+    return 0;
+  }
 }

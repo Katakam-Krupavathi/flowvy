@@ -1,6 +1,6 @@
 # Flowvy
 
-An intuitive visual workflow builder for AI and multimedia processing pipelines, powered by React Flow, Google Gemini API, and Trigger.dev.
+An intuitive visual workflow builder for AI and multimedia processing pipelines, powered by Next.js 14, React Flow, FFmpeg, and Google Gemini API.
 
 ## Features
 
@@ -9,11 +9,10 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 - 🔄 6 extensible node types: Text, Upload Image, Upload Video, LLM, Crop Image, Extract Frame
 - 🌊 React Flow interactive canvas with dot grid background and minimap
 - 📊 Workflow run history with node-level execution details
-- ⚡ Concurrent/parallel execution for independent workflow branches
+- ⚡ Concurrent/topological execution for multi-branch workflows
 - 🔒 Type-safe connections with DAG validation (cycle prevention)
 - 💾 Workflow persistence and JSON export/import
-- 🎯 Asynchronous task execution with Trigger.dev and Google Gemini
-
+- 🚀 Durable in-process task execution engine (zero external background worker setup required)
 
 ## Tech Stack
 
@@ -23,9 +22,9 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 - **Prisma** - ORM for database access
 - **Clerk** - Authentication
 - **React Flow** - Visual workflow/node graph
-- **Trigger.dev** - All node execution
+- **fluent-ffmpeg / ffmpeg-static** - Image cropping and video frame extraction
+- **Google Generative AI** - Gemini API for multimodal LLM processing
 - **Transloadit** - File uploads and media processing
-- **Google Generative AI** - Gemini API for LLM
 - **Tailwind CSS** - Styling
 - **Zustand** - State management
 - **Zod** - Schema validation
@@ -45,10 +44,10 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 
    Required environment variables:
    - `DATABASE_URL` - PostgreSQL connection string
+   - `DIRECT_URL` - Direct PostgreSQL connection string (for Supabase pooling)
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
    - `CLERK_SECRET_KEY` - Clerk secret key
    - `GOOGLE_AI_API_KEY` - Google Gemini API key
-   - `TRIGGER_API_KEY` - Trigger.dev API key
    - `NEXT_PUBLIC_TRANSLOADIT_KEY` - Transloadit key
    - `TRANSLOADIT_SECRET` - Transloadit secret
 
@@ -63,16 +62,15 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
    npm run dev
    ```
 
-5. **Run Trigger.dev in development:**
+5. **Run the verification suite:**
    ```bash
-   npm run trigger:dev
+   npm test
    ```
 
 ## Getting API Keys
 
-- **Google AI**: Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Google AI**: Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 - **Clerk**: Sign up at [clerk.com](https://clerk.com)
-- **Trigger.dev**: Sign up at [trigger.dev](https://trigger.dev)
 - **Transloadit**: Sign up at [transloadit.com](https://transloadit.com)
 - **PostgreSQL**: Use [Supabase](https://supabase.com) or [Neon](https://neon.tech) for a free database
 
@@ -80,26 +78,27 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 
 ```
 ├── app/                    # Next.js app directory
-│   ├── api/               # API routes
+│   ├── api/               # API routes (execution, workflows, models)
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Main page
 ├── components/            # React components
-│   ├── nodes/            # Node components
-│   ├── WorkflowCanvas.tsx
-│   ├── LeftSidebar.tsx
-│   └── RightSidebar.tsx
-├── lib/                   # Utility functions
-│   ├── db.ts             # Prisma client
-│   ├── store.ts          # Zustand store
-│   ├── types.ts          # TypeScript types
-│   └── utils.ts          # Utility functions
-├── prisma/               # Prisma schema
+│   ├── nodes/            # Node components (6 types)
+│   ├── WorkflowCanvas.tsx # Canvas viewport & graph
+│   ├── LeftSidebar.tsx    # Node palette
+│   └── RightSidebar.tsx   # Run history inspector
+├── lib/                   # Core utilities & task execution
+│   ├── tasks/             # Media and AI execution tasks (crop, extract frame, LLM)
+│   ├── db.ts              # Prisma client
+│   ├── store.ts           # Zustand store
+│   ├── types.ts           # TypeScript types
+│   ├── utils.ts           # Graph & DAG utilities
+│   └── workflow-execution.ts # Topological planner & execution engine
+├── prisma/                # Prisma schema
 │   └── schema.prisma
-└── trigger/              # Trigger.dev tasks
-    ├── llm-task.ts
-    ├── crop-image-task.ts
-    └── extract-frame-task.ts
+└── scripts/               # CI and verification scripts
+    ├── check-secrets.js   # Automated secret scanner
+    └── verify-execution.ts # Workflow execution test suite
 ```
 
 ## Node Types
@@ -108,27 +107,25 @@ An intuitive visual workflow builder for AI and multimedia processing pipelines,
 Simple text input with textarea and output handle for text data.
 
 ### Upload Image Node
-File upload via Transloadit. Accepts: jpg, jpeg, png, webp, gif. Shows image preview after upload.
+File upload via Transloadit or direct image URL. Accepts: jpg, jpeg, png, webp, gif. Shows image preview after upload.
 
 ### Upload Video Node
-File upload via Transloadit. Accepts: mp4, mov, webm, m4v. Shows video player preview after upload.
+File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. Shows video player preview after upload.
 
 ### Run Any LLM Node
-- Model selector dropdown (Gemini models)
-- Accepts system prompt, user message, and images (supports multiple)
-- Executes via Trigger.dev task
+- Model selector dropdown (Gemini 1.5 Flash by default)
+- Accepts system prompt, user message, and images (supports multiple multimodal inputs)
 - Displays response inline on the node
 
 ### Crop Image Node
-- Accepts image input
+- Accepts image input (URL or data URI)
 - Configurable crop parameters (x%, y%, width%, height%)
-- Executes via FFmpeg on Trigger.dev
+- Executes via in-process FFmpeg filter
 
 ### Extract Frame from Video Node
 - Accepts video URL input
 - Configurable timestamp parameter (seconds or percentage)
-- Extracts a single frame as image
-- Executes via FFmpeg on Trigger.dev
+- Extracts a single frame as image via FFmpeg
 
 ## Workflow Features
 
@@ -150,6 +147,7 @@ The right sidebar shows:
 - Status indicators (success/failed/running)
 - Node-level execution details when clicking a run
 - Inputs/outputs for each node execution
+- Automatic cleanup of stale interrupted runs
 
 ## Sample Workflow
 
@@ -161,17 +159,17 @@ The project includes a pre-built sample workflow demonstrating:
 
 ## Deployment
 
-Deploy to Vercel:
+Deploy to Vercel or any Node.js host:
 
 1. Push your code to GitHub
-2. Import project to Vercel
+2. Import project into Vercel
 3. Add environment variables in Vercel dashboard
 4. Deploy!
 
 ## Troubleshooting
 
 ### Gemini API Models
-- The application uses `gemini-1.5-flash` by default (replacing legacy `gemini-pro`).
+- The application uses `gemini-1.5-flash` by default.
 - Ensure your `GOOGLE_AI_API_KEY` is active and copied directly from [Google AI Studio](https://makersuite.google.com/app/apikey) into `.env`.
 - You can test your key and inspect available models by visiting `http://localhost:3000/api/test-models`.
 

@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { runLLM } from "@/trigger/llm-task";
+import { runLLM } from "@/lib/tasks/llm";
 import { prisma } from "@/lib/db";
 
 const llmSchema = z.object({

@@ -12,14 +12,12 @@
     "test": "npx tsx scripts/verify-execution.ts",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "trigger:dev": "trigger.dev@latest dev"
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.0.0",
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.19.0",
-    "@trigger.dev/sdk": "^3.0.0",
     "fluent-ffmpeg": "^2.1.2",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
@@ -37,7 +35,6 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@trigger.dev/nextjs": "^3.0.0",
     "@types/uuid": "^9.0.8",
     "@types/fluent-ffmpeg": "^2.1.23",
     "autoprefixer": "^10.0.1",
