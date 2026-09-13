@@ -210,7 +210,32 @@ async function runVerification() {
   assert.strictEqual(invalidProtoResult.success, false);
   assert.ok(invalidProtoResult.error?.includes("Must start with http:// or https://"));
 
-  console.log("  ✅ HTTP Request task validation verified\n");
+  // 6. Test evaluateCondition & DAG branch pruning
+  console.log("  Step 6: Testing conditional evaluation and DAG branch pruning...");
+  const { evaluateCondition } = await import("../lib/tasks/conditional");
+  const { findDownstreamDescendants } = await import("../lib/workflow-execution");
+
+  // Operators test
+  assert.strictEqual(evaluateCondition({ value: "apple", operator: "equals", compareValue: "apple" }).result, true);
+  assert.strictEqual(evaluateCondition({ value: "apple", operator: "equals", compareValue: "banana" }).result, false);
+  assert.strictEqual(evaluateCondition({ value: "hello world", operator: "contains", compareValue: "world" }).result, true);
+  assert.strictEqual(evaluateCondition({ value: 25, operator: "greater_than", compareValue: 10 }).result, true);
+  assert.strictEqual(evaluateCondition({ value: "", operator: "is_empty" }).result, true);
+  assert.strictEqual(evaluateCondition({ value: "not empty", operator: "is_not_empty" }).result, true);
+
+  // DAG Branch pruning test
+  const branchingEdges = [
+    { id: "e1", source: "cond-1", target: "node-true-branch", sourceHandle: "true" },
+    { id: "e2", source: "node-true-branch", target: "node-true-leaf" },
+    { id: "e3", source: "cond-1", target: "node-false-branch", sourceHandle: "false" },
+    { id: "e4", source: "node-false-branch", target: "node-false-leaf" },
+  ];
+
+  const falseDescendants = findDownstreamDescendants("node-false-branch", branchingEdges as any);
+  assert.ok(falseDescendants.has("node-false-leaf"), "Downstream leaf on false branch should be pruned when true is chosen");
+  assert.strictEqual(falseDescendants.has("node-true-branch"), false);
+
+  console.log("  ✅ Condition evaluation & DAG branch pruning verified\n");
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }
