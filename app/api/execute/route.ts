@@ -5,7 +5,9 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { createExecutionPlan, collectNodeInputs } from "@/lib/workflow-execution";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { cropImageFF } from "@/trigger/crop-image-task";
+import { extractFrameFF } from "@/trigger/extract-frame-task";
+import { runLLM } from "@/trigger/llm-task";
 
 const executeSchema = z.object({
   workflowId: z.string(),
@@ -108,48 +110,91 @@ export async function POST(request: NextRequest) {
           try {
             switch (nodeType) {
               case "text": {
-                const text = rfNode.data?.text || "";
+                const text = (inputs.text as string) ?? (rfNode.data?.text as string) ?? "";
                 outputs = { output: text };
                 break;
               }
               case "uploadImage": {
-                const url = rfNode.data?.imageUrl || "";
+                const url = (inputs.image_url as string) ?? (rfNode.data?.imageUrl as string) ?? "";
                 outputs = { outputUrl: url };
                 break;
               }
               case "uploadVideo": {
-                const url = rfNode.data?.videoUrl || "";
+                const url = (inputs.video_url as string) ?? (rfNode.data?.videoUrl as string) ?? "";
                 outputs = { outputUrl: url };
                 break;
               }
               case "cropImage": {
-                const url =
-                  (rfNode.data?.outputUrl as string) ??
+                const imageUrl =
                   (inputs.image_url as string) ??
+                  (inputs.imageUrl as string) ??
                   (rfNode.data?.imageUrl as string) ??
                   (inputs.input as string) ??
+                  (rfNode.data?.outputUrl as string) ??
                   "";
-                outputs = { outputUrl: url };
+                const xPercent = Number(inputs.x_percent ?? inputs.xPercent ?? rfNode.data?.xPercent ?? 0);
+                const yPercent = Number(inputs.y_percent ?? inputs.yPercent ?? rfNode.data?.yPercent ?? 0);
+                const widthPercent = Number(inputs.width_percent ?? inputs.widthPercent ?? rfNode.data?.widthPercent ?? 100);
+                const heightPercent = Number(inputs.height_percent ?? inputs.heightPercent ?? rfNode.data?.heightPercent ?? 100);
+
+                if (!imageUrl) {
+                  throw new Error("No image URL provided for Crop Image node");
+                }
+
+                const result = await cropImageFF({
+                  imageUrl,
+                  xPercent,
+                  yPercent,
+                  widthPercent,
+                  heightPercent,
+                });
+
+                if (!result.success || !result.outputUrl) {
+                  throw new Error(result.error || "Failed to crop image");
+                }
+
+                outputs = { outputUrl: result.outputUrl };
                 break;
               }
               case "extractFrame": {
-                const url = ((rfNode.data?.outputUrl as string) ?? (inputs.video_url as string) ?? rfNode.data?.videoUrl ?? (inputs.input as string) ?? "") as string;
-                // If URL is already a data URL image, pass through; if it's a data URL video, no server-side extraction
-                // Keep placeholder: swap extension for remote URLs only
-                const out =
-                  typeof url === "string" && /^data:image\//.test(url)
-                    ? url
-                    : typeof url === "string" && /^https?:\/\//.test(url)
-                    ? url.replace(/\.(mp4|mov|webm|m4v)$/i, ".jpg")
-                    : "";
-                outputs = { outputUrl: out };
+                const videoUrl =
+                  (inputs.video_url as string) ??
+                  (inputs.videoUrl as string) ??
+                  (rfNode.data?.videoUrl as string) ??
+                  (inputs.input as string) ??
+                  (rfNode.data?.outputUrl as string) ??
+                  "";
+                const timestamp = String(inputs.timestamp ?? rfNode.data?.timestamp ?? "0");
+
+                if (!videoUrl) {
+                  throw new Error("No video URL provided for Extract Frame node");
+                }
+
+                const result = await extractFrameFF({
+                  videoUrl,
+                  timestamp,
+                });
+
+                if (!result.success || !result.outputUrl) {
+                  throw new Error(result.error || "Failed to extract frame");
+                }
+
+                outputs = { outputUrl: result.outputUrl };
                 break;
               }
               case "llm": {
                 const systemPrompt =
-                  (inputs.system_prompt as string) ?? rfNode.data?.systemPrompt ?? "";
+                  (inputs.system_prompt as string) ??
+                  (inputs.systemPrompt as string) ??
+                  rfNode.data?.systemPrompt ??
+                  "";
                 const userMessage =
-                  (inputs.user_message as string) ?? rfNode.data?.userMessage ?? "";
+                  (inputs.user_message as string) ??
+                  (inputs.userMessage as string) ??
+                  rfNode.data?.userMessage ??
+                  "";
+                const model = rfNode.data?.model || "gemini-1.5-flash";
+
                 const imagesInput = inputs.images;
                 const images: string[] = Array.isArray(imagesInput)
                   ? imagesInput.filter(Boolean)
@@ -157,15 +202,6 @@ export async function POST(request: NextRequest) {
                   ? [imagesInput]
                   : [];
 
-                if (!process.env.GOOGLE_AI_API_KEY) {
-                  throw new Error("GOOGLE_AI_API_KEY not configured");
-                }
-                const modelName = "gemini-1.5-flash";
-
-                const parts: any[] = [];
-                if (systemPrompt) parts.push({ text: systemPrompt + "\n\n" });
-                parts.push({ text: userMessage || "" });
-                // accept images from 'images' or fallback handles if present
                 const imageCandidates = images.length
                   ? images
                   : (() => {
@@ -178,117 +214,19 @@ export async function POST(request: NextRequest) {
                       else if (maybeOutput) fallbacks.push(maybeOutput);
                       return fallbacks.filter(Boolean);
                     })();
-                {
-                  const maxImages = Math.min(2, imageCandidates.length);
-                  const urls = imageCandidates.slice(0, maxImages);
-                  const tasks = urls.map(async (imageUrl) => {
-                    try {
-                      if (typeof imageUrl === "string" && imageUrl.startsWith("data:")) {
-                        const match = imageUrl.match(/^data:(.*?);base64,(.*)$/);
-                        if (match) {
-                          const mimeType = match[1] || "image/jpeg";
-                          const data = match[2] || "";
-                          return { inlineData: { data, mimeType } };
-                        }
-                        return null;
-                      }
-                      if (typeof imageUrl === "string" && /^https?:\/\//.test(imageUrl)) {
-                        const controller = new AbortController();
-                        const timer = setTimeout(() => controller.abort(), 5000);
-                        const res = await fetch(imageUrl, { signal: controller.signal });
-                        clearTimeout(timer);
-                        if (!res.ok) return null;
-                        const ct = res.headers.get("content-type") || "";
-                        if (!ct.toLowerCase().startsWith("image/")) return null;
-                        const cl = parseInt(res.headers.get("content-length") || "0", 10);
-                        if (isFinite(cl) && cl > 10 * 1024 * 1024) return null;
-                        const buffer = await res.arrayBuffer();
-                        const base64 = Buffer.from(buffer).toString("base64");
-                        const mimeType = ct || "image/jpeg";
-                        return { inlineData: { data: base64, mimeType } };
-                      }
-                      return null;
-                    } catch {
-                      return null;
-                    }
-                  });
-                  const results = await Promise.allSettled(tasks);
-                  for (const r of results) {
-                    if (r.status === "fulfilled" && r.value) {
-                      parts.push(r.value as any);
-                    }
-                  }
+
+                const result = await runLLM({
+                  model,
+                  systemPrompt,
+                  userMessage,
+                  images: imageCandidates,
+                });
+
+                if (!result.success) {
+                  throw new Error(result.error || "LLM execution failed");
                 }
 
-                let text = "";
-                let lastError: any = null;
-                let listModels: string[] = [];
-                try {
-                  const listResp = await fetch(
-                    `https://generativelanguage.googleapis.com/v1/models?key=${process.env.GOOGLE_AI_API_KEY}`
-                  );
-                  if (listResp.ok) {
-                    const listData = await listResp.json();
-                    if (Array.isArray(listData.models)) {
-                      listModels = listData.models
-                        .filter(
-                          (m: any) =>
-                            String(m.name || "").includes("flash") &&
-                            (!m.supportedGenerationMethods ||
-                              (Array.isArray(m.supportedGenerationMethods) &&
-                                m.supportedGenerationMethods.includes("generateContent")))
-                        )
-                        .map((m: any) => String(m.name || "").replace(/^models\//, ""));
-                    }
-                  }
-                } catch {}
-                const preferredOrder = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash"];
-                const candidates = Array.from(
-                  new Set([...preferredOrder, ...listModels].filter((n) => String(n).includes("flash")))
-                );
-                for (const name of candidates) {
-                  for (const version of ["v1", "v1beta"] as const) {
-                    try {
-                      const resp = await fetch(
-                        `https://generativelanguage.googleapis.com/${version}/models/${name}:generateContent?key=${process.env.GOOGLE_AI_API_KEY}`,
-                        {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            contents: [{ role: "user", parts }],
-                          }),
-                        }
-                      );
-                      if (!resp.ok) {
-                        const errText = await resp.text();
-                        const msg = errText || `HTTP ${resp.status}`;
-                        lastError = new Error(msg);
-                        const notFound = msg.includes("not found") || msg.includes("404");
-                        if (notFound) continue;
-                        throw new Error(msg);
-                      }
-                      const data = await resp.json();
-                      text =
-                        (data.candidates &&
-                          data.candidates[0] &&
-                          data.candidates[0].content &&
-                          Array.isArray(data.candidates[0].content.parts) &&
-                          data.candidates[0].content.parts
-                            .map((p: any) => p.text || "")
-                            .join("")) ||
-                        "";
-                      lastError = null;
-                      break;
-                    } catch (e: any) {
-                      lastError = e;
-                    }
-                  }
-                  if (text) break;
-                }
-                if (!text && lastError) {
-                  throw lastError;
-                }
-                outputs = { output: text, model: "gemini-1.5-flash" };
+                outputs = { output: result.output, model: result.model || model };
                 break;
               }
               default: {
@@ -299,6 +237,7 @@ export async function POST(request: NextRequest) {
             if (outputs) {
               nodeOutputs.set(nodeId, outputs);
             }
+
             await prisma.nodeRun.update({
               where: { id: nodeRun.id },
               data: {

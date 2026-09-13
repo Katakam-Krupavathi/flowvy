@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "check:secrets": "node scripts/check-secrets.js",
+    "verify:execution": "npx tsx scripts/verify-execution.ts",
+    "test": "npx tsx scripts/verify-execution.ts",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
