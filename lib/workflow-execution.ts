@@ -91,6 +91,9 @@ export function collectNodeInputs(
       case "extractFrame":
         value = nodeOutputs?.get(sourceNode.id)?.outputUrl ?? sourceNode.data?.outputUrl ?? "";
         break;
+      case "httpRequest":
+        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data?.response ?? "";
+        break;
       default:
         value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data;
     }
