@@ -1,207 +1,283 @@
 # Flowvy
 
-An intuitive visual workflow builder for AI and multimedia processing pipelines, powered by Next.js 14, React Flow, FFmpeg, and Google Gemini API.
+**Flowvy** is a modern, extensible visual workflow builder for orchestrating AI and multimedia processing pipelines. Built on Next.js 14, React Flow, FFmpeg, and multi-provider LLM integrations (Google Gemini, OpenAI, Anthropic), Flowvy empowers developers and creators to design, test, branch, and deploy complex automation graphs in an intuitive node-based canvas.
 
-## Features
+---
 
-- 🎨 Sleek, modern canvas interface with dark theme styling
-- 🔐 Clerk authentication with protected routes
-- 🔄 8 extensible node types: Text, Upload Image, Upload Video, Run Any LLM (Gemini / OpenAI / Anthropic), Crop Image, Extract Frame, HTTP Request, Condition / Branch
-- 🌊 React Flow interactive canvas with dot grid background and minimap
-- 📡 Real-time execution status via **Server-Sent Events (SSE)** (nodes light up live as steps execute)
-- 📊 Workflow run history with node-level execution details and lifetime token/cost analytics ($ USD)
-- 🔀 Dynamic branching DAG execution with automatic branch pruning for true automation logic
-- ⚡ Concurrent/topological execution for multi-branch workflows
-- 🔒 Type-safe connections with DAG validation (cycle prevention)
-- 💾 Workflow persistence and JSON export/import
-- 🚀 Durable in-process task execution engine (zero external background worker setup required)
+## Architecture Overview
 
-## Tech Stack
+Flowvy connects a reactive front-end visual canvas to a resilient Next.js execution engine, database persistence layer, and external AI/multimedia services.
 
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type safety throughout
-- **PostgreSQL** - Database (use Supabase, Neon, or similar)
-- **Prisma** - ORM for database access
-- **Clerk** - Authentication
-- **React Flow** - Visual workflow/node graph
-- **fluent-ffmpeg / ffmpeg-static** - Image cropping and video frame extraction
-- **Google Generative AI** - Gemini API for multimodal LLM processing
-- **Transloadit** - File uploads and media processing
-- **Tailwind CSS** - Styling
-- **Zustand** - State management
-- **Zod** - Schema validation
+```mermaid
+graph TB
+    subgraph Client["Client Tier (Browser)"]
+        Canvas["React Flow Canvas\n(Interactive DAG Builder)"]
+        SSEListener["SSE Stream Listener\n(Live Node Lighting)"]
+        Inspector["Run Inspector & Cost Analytics\n(Right Sidebar)"]
+        Templates["Template Gallery Modal\n(1-Click Workflows)"]
+    end
 
-## Setup
+    subgraph AuthAndMedia["External Services"]
+        Clerk["Clerk Authentication\n(JWT & User Sessions)"]
+        Transloadit["Transloadit Media CDN\n(Direct Video/Image Uploads)"]
+    end
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+    subgraph Server["Next.js Application Layer"]
+        AuthMiddleware["Clerk Auth Middleware"]
+        WfRoutes["/api/workflows\n(CRUD & Persistence)"]
+        RunRoute["/api/execute\n(Full DAG Execution Engine)"]
+        SSERoute["/api/workflows/[id]/runs/stream\n(Server-Sent Events)"]
+        EventHub["lib/events.ts\n(In-Process Event Hub)"]
 
-2. **Set up environment variables:**
-   Copy `.env.example` to `.env` and fill in your API keys:
-   ```bash
-   cp .env.example .env
-   ```
+        subgraph PerNodeRoutes["Per-Node Execution Endpoints"]
+            CropRoute["/api/execute/crop-image"]
+            FrameRoute["/api/execute/extract-frame"]
+            LLMRoute["/api/execute/llm"]
+            HttpRoute["/api/execute/http-request"]
+        end
+    end
 
-   Required environment variables:
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `DIRECT_URL` - Direct PostgreSQL connection string (for Supabase pooling)
-   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
-   - `CLERK_SECRET_KEY` - Clerk secret key
-   - `GOOGLE_AI_API_KEY` - Google Gemini API key
-   - `NEXT_PUBLIC_TRANSLOADIT_KEY` - Transloadit key
-   - `TRANSLOADIT_SECRET` - Transloadit secret
+    subgraph ExecutionBackend["Durable In-Process Execution Backend"]
+        CropTask["lib/tasks/crop-image.ts\n(FFmpeg Engine)"]
+        FrameTask["lib/tasks/extract-frame.ts\n(FFmpeg Engine)"]
+        LLMTask["lib/tasks/llm.ts & lib/llm.ts\n(Gemini / OpenAI / Anthropic)"]
+        HttpTask["lib/tasks/http-request.ts\n(REST API Client with Timeout Guard)"]
+        CondTask["lib/tasks/conditional.ts\n(Branching Logic Evaluator)"]
+    end
 
-3. **Set up the database:**
-   ```bash
-   npx prisma generate
-   npx prisma db push
-   ```
+    subgraph Storage["Database & State Layer"]
+        Prisma["Prisma ORM"]
+        Postgres[(PostgreSQL Database\nWorkflow, WorkflowRun, NodeRun)]
+    end
 
-4. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+    Canvas -->|Authenticated Requests| AuthMiddleware
+    AuthMiddleware --> WfRoutes
+    AuthMiddleware --> RunRoute
+    AuthMiddleware --> PerNodeRoutes
 
-5. **Run the verification suite:**
-   ```bash
-   npm test
-   ```
+    Canvas -.->|File Uploads| Transloadit
+    Canvas -.->|Session Auth| Clerk
 
-## Getting API Keys
+    RunRoute --> EventHub
+    EventHub --> SSERoute
+    SSERoute -->|Real-Time Status| SSEListener
 
-- **Google AI**: Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **Clerk**: Sign up at [clerk.com](https://clerk.com)
-- **Transloadit**: Sign up at [transloadit.com](https://transloadit.com)
-- **PostgreSQL**: Use [Supabase](https://supabase.com) or [Neon](https://neon.tech) for a free database
+    RunRoute --> CropTask
+    RunRoute --> FrameTask
+    RunRoute --> LLMTask
+    RunRoute --> HttpTask
+    RunRoute --> CondTask
 
-## Project Structure
+    PerNodeRoutes --> CropTask
+    PerNodeRoutes --> FrameTask
+    PerNodeRoutes --> LLMTask
+    PerNodeRoutes --> HttpTask
 
+    WfRoutes --> Prisma
+    RunRoute --> Prisma
+    Prisma --> Postgres
 ```
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes (execution, workflows, models)
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Main page
-├── components/            # React components
-│   ├── nodes/            # Node components (6 types)
-│   ├── WorkflowCanvas.tsx # Canvas viewport & graph
-│   ├── LeftSidebar.tsx    # Node palette
-│   └── RightSidebar.tsx   # Run history inspector
-├── lib/                   # Core utilities & task execution
-│   ├── tasks/             # Media and AI execution tasks (crop, extract frame, LLM)
-│   ├── db.ts              # Prisma client
-│   ├── store.ts           # Zustand store
-│   ├── types.ts           # TypeScript types
-│   ├── utils.ts           # Graph & DAG utilities
-│   └── workflow-execution.ts # Topological planner & execution engine
-├── prisma/                # Prisma schema
-│   └── schema.prisma
-└── scripts/               # CI and verification scripts
-    ├── check-secrets.js   # Automated secret scanner
-    └── verify-execution.ts # Workflow execution test suite
+
+---
+
+## Workflow Execution Sequence
+
+When you click **Run Workflow**, Flowvy validates the Directed Acyclic Graph (DAG), detects topological execution layers, executes tasks concurrently, prunes inactive conditional branches, and streams real-time status updates to the client via Server-Sent Events (SSE).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Canvas as Canvas UI (React Flow)
+    participant SSE as SSE Stream Client
+    participant API as Execution Engine (/api/execute)
+    participant Planner as Topological Planner (lib/workflow-execution.ts)
+    participant Tasks as Task Runners (lib/tasks/*)
+    participant EventHub as Event Hub (lib/events.ts)
+    participant DB as Database (Prisma / Postgres)
+
+    User->>Canvas: Click "Run Workflow"
+    Canvas->>SSE: Open EventSource (/api/workflows/:id/runs/stream)
+    Canvas->>API: POST /api/execute { workflowId, nodes, edges }
+    API->>DB: Create WorkflowRun (Status: RUNNING)
+    API->>EventHub: Emit workflow:start
+    EventHub-->>SSE: Stream workflow:start -> Highlight Canvas
+
+    API->>Planner: Validate DAG & Plan Topological Order
+    Planner-->>API: Return Ordered Node Batches
+
+    loop For each topological layer
+        alt Node is in Active Branch
+            API->>DB: Create/Update NodeRun (Status: RUNNING)
+            API->>EventHub: Emit node:start (nodeId)
+            EventHub-->>SSE: Stream node:start -> Yellow Spinner on Node
+
+            alt Node is Conditional / Branch
+                API->>Tasks: Evaluate condition (operator, values)
+                Tasks-->>API: Result: Boolean (True/False)
+                API->>Planner: findDownstreamDescendants(inactiveBranch)
+                Planner-->>API: Inactive Node IDs to Prune
+                Note over API,Planner: Inactive branch descendants are marked SKIPPED
+            else Node is LLM / FFmpeg / HTTP / Media
+                API->>Tasks: Execute task with resolved inputs
+                Tasks-->>API: Return outputs + token usage + duration
+            end
+
+            API->>DB: Update NodeRun (Status: SUCCESS/SKIPPED)
+            API->>EventHub: Emit node:complete (nodeId, outputs)
+            EventHub-->>SSE: Stream node:complete -> Green Border & Outputs
+        else Node is Skipped
+            API->>DB: Update NodeRun (Status: SKIPPED)
+        end
+    end
+
+    API->>DB: Update WorkflowRun (Status: SUCCESS, Total Tokens & Cost)
+    API->>EventHub: Emit workflow:complete
+    EventHub-->>SSE: Stream workflow:complete
+    SSE->>Canvas: Render Final Outputs & Update History Sidebar
+    API-->>Canvas: HTTP 200 { success: true, runId, outputs }
 ```
+
+---
 
 ## Node Types
 
-### Text Node
-Simple text input with textarea and output handle for text data.
+Flowvy provides **8 modular, extensible node types** supporting media transformations, multi-model AI reasoning, external API integrations, and dynamic branching:
 
-### Upload Image Node
-File upload via Transloadit or direct image URL. Accepts: jpg, jpeg, png, webp, gif. Shows image preview after upload.
+| Node Type | Category | Description | Key Inputs / Config | Outputs |
+| :--- | :--- | :--- | :--- | :--- |
+| **Text** | Input | Simple or formatted text source | Text value | `output` (text) |
+| **Upload Image** | Media | Image upload via Transloadit or URL | Image URL / file upload | `output` (image URL / base64) |
+| **Upload Video** | Media | Video upload via Transloadit or URL | Video URL / file upload | `output` (video URL) |
+| **Run Any LLM** | AI & LLM | Multi-provider multimodal LLM processor | System Prompt, User Prompt, Images | `output` (text response) + Token/Cost usage |
+| **Crop Image** | Media | FFmpeg visual crop tool | Image URL, X%, Y%, Width%, Height% | `output` (cropped image) |
+| **Extract Frame** | Media | FFmpeg video keyframe extractor | Video URL, Timestamp (sec/%) | `output` (extracted frame image) |
+| **HTTP Request** | Integration | Universal REST API & webhook client | Method (GET/POST/PUT/DEL), URL, Headers, Body | `output` (JSON / text payload), `status` |
+| **Condition / Branch** | Logic | Dual-branch dynamic route evaluator | Value, Operator, Compare Value | `true` (passed branch), `false` (failed branch) |
 
-### Upload Video Node
-File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. Shows video player preview after upload.
+### Multi-Provider LLM Details
+- **Providers Supported**: Google Gemini, OpenAI, Anthropic Claude.
+- **Models Supported**:
+  - **Gemini**: `gemini-1.5-flash`, `gemini-1.5-flash-latest`, `gemini-2.0-flash`, `gemini-1.5-pro`
+  - **OpenAI**: `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `o1-mini`
+  - **Anthropic**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`
+- **Multimodal**: Connects upstream image nodes directly into LLM image input handles.
+- **Cost Analytics**: Calculates prompt tokens, completion tokens, and real-time execution cost ($ USD) per node and per run.
 
-### Run Any LLM Node (Multi-Provider)
-- **Multi-Provider Support**: Choose between **Google Gemini**, **OpenAI**, and **Anthropic Claude** on a per-node basis
-- **Supported Models**:
-  - Google Gemini (`gemini-1.5-flash`, `gemini-1.5-flash-latest`, `gemini-2.0-flash`, `gemini-1.5-pro`)
-  - OpenAI (`gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `o1-mini`)
-  - Anthropic (`claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`)
-- **Multimodal**: Accepts system prompts, user messages, and multiple images (base64 data URIs or remote URLs)
-- **Token & Cost Tracking**: Live estimation of prompt tokens, completion tokens, and real-time execution cost ($ USD)
-- **Inline Preview**: Displays responses and token usage badges directly on the canvas node
+### Dynamic Branching & Inactive Path Pruning
+- Supports comparison operators: `equals`, `not_equals`, `contains`, `not_contains`, `greater_than`, `less_than`, `is_empty`, and `is_not_empty`.
+- If a condition evaluates to `True`, the execution planner automatically identifies all downstream descendants connected exclusively to the `False` handle and prunes them from the execution plan without failing the DAG.
 
-### Crop Image Node
-- Accepts image input (URL or data URI)
-- Configurable crop parameters (x%, y%, width%, height%)
-- Executes via in-process FFmpeg filter
+---
 
-### Extract Frame from Video Node
-- Accepts video URL input
-- Configurable timestamp parameter (seconds or percentage)
-- Extracts a single frame as image via FFmpeg
+## Features
 
-### HTTP Request Node (Generic API Integration)
-- **Universal REST Client**: Make arbitrary `GET`, `POST`, `PUT`, `DELETE`, `PATCH` calls to external APIs and webhooks
-- **Configurable Headers & Payload**: Set custom authorization headers, query parameters, and JSON payloads
-- **Piped Outputs**: Returns parsed JSON response data and status codes, allowing any 3rd-party service to connect seamlessly to downstream LLM and media nodes
-- **Safety & Timeout**: Built-in 15s timeout guard with `AbortController` and protocol verification
+- 🎨 **Visual Canvas**: Drag-and-drop React Flow canvas with dark mode, zoom, minimap, and animated connections.
+- 📡 **Real-Time SSE Streaming**: Live Server-Sent Events stream node-by-node execution state directly to canvas node borders and badges.
+- 📊 **Run History & Cost Inspector**: View lifetime token consumption, estimated USD spend, and drill into inputs, outputs, errors, and durations for every step.
+- 📚 **Template Gallery & Library**: Curated starter templates and 1-click export/import for custom parameterized workflows with automatic UUID remapping.
+- ⚡ **Concurrent DAG Execution**: Parallel branches run concurrently with cycle detection and type safety.
+- 🚀 **Zero External Worker Setup**: Fast, durable in-process task execution backend eliminating external broker requirements during development and deployment.
 
-### Conditional / Branch Node (Dynamic Workflow Logic)
-- **Dual Output Branches**: Dedicated `True` and `False` source handles for dynamic path execution
-- **Rich Operator Suite**: Supports `equals`, `not_equals`, `contains`, `not_contains`, `greater_than`, `less_than`, `is_empty`, and `is_not_empty`
-- **Smart DAG Pruning**: The execution planner dynamically evaluates upstream values and automatically skips downstream nodes on the inactive branch, enabling true cyclical and conditional pipelines
+---
 
-## Workflow Features
+## Tech Stack
 
-- **Drag & Drop Nodes**: Add nodes from sidebar to canvas
-- **Node Connections**: Connect output handles to input handles with animated edges
-- **Configurable Inputs**: All node parameters configurable via handles OR manual entry
-- **Type-Safe Connections**: Enforced type validation
-- **DAG Validation**: Prevents circular dependencies
-- **Selective Execution**: Run single node, selected nodes, or full workflow
-- **Parallel Execution**: Independent branches execute concurrently
-- **Workflow Persistence**: Save/load workflows to database
-- **Export/Import**: Export workflows as JSON
-- **Template Gallery & Library**: Curated starter templates (e.g., Multimodal Video Analysis, Automated Translation & Enrichment, REST API Webhook Automation, Smart Vision QA) plus custom parameterized workflow export and 1-click instantiation
+- **Framework**: Next.js 14 (App Router, Server-Sent Events, API Routes)
+- **Language**: TypeScript throughout
+- **Database & ORM**: PostgreSQL via Prisma ORM (compatible with Supabase, Neon, or local Postgres)
+- **Authentication**: Clerk Authentication
+- **Graph & Canvas**: React Flow (@xyflow/react)
+- **AI Providers**: Google Generative AI SDK, OpenAI SDK, Anthropic SDK
+- **Multimedia Processing**: `fluent-ffmpeg` & `ffmpeg-static`
+- **File Uploads**: Transloadit
+- **Styling & State**: Tailwind CSS, Lucide React, Zustand
 
-## Template Library & Gallery
+---
 
-Flowvy includes a built-in **Template Gallery** accessible via the top toolbar:
-- **Curated Starter Templates**: Pre-configured production-grade workflows for video analysis, multi-provider LLM pipelines, API integrations, and conditional logic.
-- **Custom Template Export**: Save any custom canvas layout as a parameterized reusable template stored in your browser or exported as JSON.
-- **1-Click Instantiation**: Automatically duplicates template graphs with regenerated unique node and edge IDs, preventing ID collisions.
-- **Marketplace Ready**: Built with a clean JSON schema prepared for future community sharing and cloud marketplace publishing.
+## Getting Started
 
-## Workflow History & Cost Analytics
+### 1. Clone & Install
+```bash
+git clone https://github.com/Katakam-Krupavathi/flowvy.git
+cd flowvy
+npm install
+```
 
-The right sidebar provides real-time insights into your workflow runs:
-- **Lifetime Analytics**: Aggregated total tokens processed and cumulative estimated expenditure ($ USD)
-- **Per-Run Cost Badges**: Token consumption and USD pricing breakdown calculated using actual model pricing tiers
-- **Execution Scopes**: Distinguish between full workflow, partial branch, and single-node debug runs
-- **Node-Level Inspector**: Drill down into inputs, outputs, errors, token usage, and durations for each executed step
-- **Automatic Stale Cleanup**: Proactive cleanup of interrupted runs older than 15 minutes
+### 2. Environment Variables
+Copy `.env.example` to `.env` and configure your credentials:
+```bash
+cp .env.example .env
+```
 
-## Sample Workflow
+| Variable | Description | Source |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | PostgreSQL pooled connection string (e.g., Supabase port 6543) | [Supabase](https://supabase.com) / [Neon](https://neon.tech) |
+| `DIRECT_URL` | PostgreSQL direct session string (e.g., Supabase port 5432) | Supabase / Neon |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Publishable API Key | [Clerk Dashboard](https://clerk.com) |
+| `CLERK_SECRET_KEY` | Clerk Secret API Key | Clerk Dashboard |
+| `GOOGLE_AI_API_KEY` | Google Gemini API Key | [Google AI Studio](https://makersuite.google.com/app/apikey) |
+| `OPENAI_API_KEY` | OpenAI API Key (optional for OpenAI models) | [OpenAI Platform](https://platform.openai.com) |
+| `ANTHROPIC_API_KEY` | Anthropic API Key (optional for Claude models) | [Anthropic Console](https://console.anthropic.com) |
+| `NEXT_PUBLIC_TRANSLOADIT_KEY` | Transloadit Auth Key | [Transloadit](https://transloadit.com) |
+| `TRANSLOADIT_SECRET` | Transloadit Auth Secret | Transloadit |
 
-The project includes a pre-built sample workflow demonstrating:
-- All 6 node types
-- Parallel execution of independent branches
-- Convergence point with multiple inputs
-- Input chaining across nodes
+### 3. Initialize Database
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-## Deployment
+### 4. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Deploy to Vercel or any Node.js host:
+### 5. Run Verification Test Suite
+```bash
+npm test
+```
 
-1. Push your code to GitHub
-2. Import project into Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy!
+---
 
-## Troubleshooting
+## Security & Credential Hygiene
 
-### Gemini API Models
-- The application uses `gemini-1.5-flash` by default.
-- Ensure your `GOOGLE_AI_API_KEY` is active and copied directly from [Google AI Studio](https://makersuite.google.com/app/apikey) into `.env`.
-- You can test your key and inspect available models by visiting `http://localhost:3000/api/test-models`.
+- **Strict Git Hygiene**: Secrets, passwords, API keys, and environment variables are **never** committed to version control.
+- **Gitignore Safeguards**: `.env`, `.env.local`, and sensitive build artifacts are strictly ignored in `.gitignore`.
+- **Automated Secret Scanner**: Run `npm run check:secrets` in CI/CD or before committing to verify zero hardcoded credentials or connection strings exist in the repository.
+- **Database Connection Safety**: Refer to [DATABASE_SETUP.md](DATABASE_SETUP.md) for complete instructions on connection pooling, URL-encoding special characters in database passwords, and configuring direct vs. session pooler URLs.
 
-### Database Connection
-- If you encounter database connection errors (e.g. `P1001`, `Tenant or user not found`, or password decoding issues), refer to the detailed [Database Setup & Troubleshooting Guide](DATABASE_SETUP.md).
+---
+
+## Roadmap
+
+- [x] **Phase 0: Security & Redaction**
+  - [x] Redact all committed credentials and connection strings with standard placeholders.
+  - [x] Consolidate fragmented database guides into a single comprehensive [DATABASE_SETUP.md](DATABASE_SETUP.md).
+  - [x] Add automated secret scanning script (`scripts/check-secrets.js`) to test suite.
+- [x] **Phase 1: Full-Workflow Execution & FFmpeg Integration**
+  - [x] Fix execution route to call underlying FFmpeg tasks for `cropImage` and `extractFrame`.
+  - [x] Topological sort execution engine with cycle detection and input propagation.
+- [x] **Phase 2: LLM Consolidation**
+  - [x] Consolidate multimodal Gemini calling logic with automated fallback handling into `lib/llm.ts`.
+- [x] **Phase 3: Durable Execution Backend**
+  - [x] Replace fire-and-forget background routes with in-process execution tasks in `lib/tasks/`.
+- [x] **Phase 4: Node Extensibility**
+  - [x] Multi-Provider LLM node (Gemini, OpenAI, Anthropic Claude) with per-node configuration.
+  - [x] Generic HTTP Request node with REST methods, custom headers, and JSON body parsing.
+  - [x] Conditional / Branch node with 8 operators and topological DAG branch pruning.
+- [x] **Phase 5: Real-Time Observability & Templates**
+  - [x] Live execution status updates via Server-Sent Events (SSE).
+  - [x] Token usage and cost tracking ($ USD) with lifetime metrics and per-node inspector.
+  - [x] Reusable Workflow Template Schema, Curated Starter Gallery, and 1-Click Instantiation.
+- [ ] **Phase 6: Future Capabilities**
+  - [ ] Loop / Iteration nodes for batch processing lists of images/URLs.
+  - [ ] Secure Python / JavaScript code evaluation sandbox.
+  - [ ] Community Template Marketplace and Cloud Workflow Sharing.
+
+---
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
