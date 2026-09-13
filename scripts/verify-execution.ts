@@ -1,6 +1,8 @@
 import assert from "assert";
 import { cropImageFF } from "../lib/tasks/crop-image";
 import { extractFrameFF } from "../lib/tasks/extract-frame";
+import { runLLM } from "../lib/tasks/llm";
+import { callGemini } from "../lib/llm";
 import { createExecutionPlan, collectNodeInputs } from "../lib/workflow-execution";
 
 // Valid 100x100 red PNG image as base64 data URI
@@ -127,7 +129,42 @@ async function runVerification() {
     sampleInputUrl,
     "LLM node received raw uncropped input instead of cropped output!"
   );
-  console.log("  ✅ Chaining verified: Cropped outputUrl successfully propagated to LLM images input\n");
+  // 3. Test callGemini and runLLM interface and error handling
+  console.log("  Step 3: Testing callGemini and runLLM consolidation...");
+  const prevApiKey = process.env.GOOGLE_AI_API_KEY;
+  delete process.env.GOOGLE_AI_API_KEY;
+
+  try {
+    let callGeminiThrew = false;
+    try {
+      await callGemini({
+        userMessage: "Hello",
+        images: [sampleInputUrl],
+      });
+    } catch (e: any) {
+      callGeminiThrew = true;
+      assert.ok(
+        e.message.includes("GOOGLE_AI_API_KEY"),
+        `Unexpected error message: ${e.message}`
+      );
+    }
+    assert.strictEqual(callGeminiThrew, true, "callGemini should throw error when API key is missing");
+
+    const llmRunResult = await runLLM({
+      userMessage: "Hello",
+      images: [sampleInputUrl],
+    });
+    assert.strictEqual(llmRunResult.success, false);
+    assert.ok(
+      llmRunResult.error?.includes("GOOGLE_AI_API_KEY"),
+      `Unexpected runLLM error: ${llmRunResult.error}`
+    );
+    console.log("  ✅ callGemini & runLLM successfully validated with unified fallback and error handling\n");
+  } finally {
+    if (prevApiKey !== undefined) {
+      process.env.GOOGLE_AI_API_KEY = prevApiKey;
+    }
+  }
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }

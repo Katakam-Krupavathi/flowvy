@@ -7,7 +7,7 @@ import { z } from "zod";
 import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns } from "@/lib/workflow-execution";
 import { cropImageFF } from "@/lib/tasks/crop-image";
 import { extractFrameFF } from "@/lib/tasks/extract-frame";
-import { runLLM } from "@/lib/tasks/llm";
+import { callGemini } from "@/lib/llm";
 
 const executeSchema = z.object({
   workflowId: z.string(),
@@ -219,18 +219,14 @@ export async function POST(request: NextRequest) {
                       return fallbacks.filter(Boolean);
                     })();
 
-                const result = await runLLM({
+                const result = await callGemini({
                   model,
                   systemPrompt,
                   userMessage,
                   images: imageCandidates,
                 });
 
-                if (!result.success) {
-                  throw new Error(result.error || "LLM execution failed");
-                }
-
-                outputs = { output: result.output, model: result.model || model };
+                outputs = { output: result.text, model: result.model || model };
                 break;
               }
               default: {
