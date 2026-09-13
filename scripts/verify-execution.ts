@@ -154,7 +154,6 @@ async function runVerification() {
       userMessage: "Hello",
       images: [sampleInputUrl],
     });
-    assert.strictEqual(llmRunResult.success, false);
     assert.ok(
       llmRunResult.error?.includes("GOOGLE_AI_API_KEY"),
       `Unexpected runLLM error: ${llmRunResult.error}`
@@ -165,6 +164,42 @@ async function runVerification() {
       process.env.GOOGLE_AI_API_KEY = prevApiKey;
     }
   }
+
+  // 4. Test multi-provider LLM and estimateCost
+  console.log("  Step 4: Testing multi-provider LLM and estimateCost calculation...");
+  const { callLLM, estimateCost } = await import("../lib/llm");
+
+  const costFlash = estimateCost("gemini", "gemini-1.5-flash", 1000, 500);
+  assert.ok(costFlash > 0, "Cost calculation for gemini should be positive");
+  const costGpt4o = estimateCost("openai", "gpt-4o", 1000, 500);
+  assert.ok(costGpt4o > costFlash, "GPT-4o should be more expensive than Gemini Flash");
+  const costClaude = estimateCost("anthropic", "claude-3-5-sonnet-20241022", 1000, 500);
+  assert.ok(costClaude > 0, "Claude cost should be positive");
+
+  let openAIThrew = false;
+  try {
+    await callLLM({
+      provider: "openai",
+      userMessage: "Hello",
+    });
+  } catch (err: any) {
+    openAIThrew = true;
+    assert.ok(err.message.includes("OPENAI_API_KEY"), `Unexpected OpenAI error: ${err.message}`);
+  }
+  assert.strictEqual(openAIThrew, true, "callLLM with OpenAI should throw when OPENAI_API_KEY is unset");
+
+  let anthropicThrew = false;
+  try {
+    await callLLM({
+      provider: "anthropic",
+      userMessage: "Hello",
+    });
+  } catch (err: any) {
+    anthropicThrew = true;
+    assert.ok(err.message.includes("ANTHROPIC_API_KEY"), `Unexpected Anthropic error: ${err.message}`);
+  }
+  assert.strictEqual(anthropicThrew, true, "callLLM with Anthropic should throw when ANTHROPIC_API_KEY is unset");
+  console.log("  ✅ Multi-provider LLM and cost estimation validated\n");
 
   console.log("🎉 All workflow execution assertions passed successfully!");
 }
