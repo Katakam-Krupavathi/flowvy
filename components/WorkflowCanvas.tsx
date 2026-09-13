@@ -29,6 +29,7 @@ import LLMNode from "./nodes/LLMNode";
 import CropImageNode from "./nodes/CropImageNode";
 import ExtractFrameNode from "./nodes/ExtractFrameNode";
 import HttpRequestNode from "./nodes/HttpRequestNode";
+import ConditionalNode from "./nodes/ConditionalNode";
 import { WorkflowNode } from "@/lib/types";
 
 const nodeTypes = {
@@ -39,6 +40,7 @@ const nodeTypes = {
   cropImage: CropImageNode,
   extractFrame: ExtractFrameNode,
   httpRequest: HttpRequestNode,
+  conditional: ConditionalNode,
 };
 
 export default function WorkflowCanvas() {
