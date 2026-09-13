@@ -94,6 +94,9 @@ export function collectNodeInputs(
       case "httpRequest":
         value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data?.response ?? "";
         break;
+      case "conditional":
+        value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data?.value ?? "";
+        break;
       default:
         value = nodeOutputs?.get(sourceNode.id)?.output ?? sourceNode.data?.output ?? sourceNode.data;
     }
@@ -112,6 +115,28 @@ export function collectNodeInputs(
 
   return inputs;
 }
+
+/**
+ * Recursively finds all downstream descendant node IDs reachable from a given node
+ */
+export function findDownstreamDescendants(startNodeId: string, edges: Edge[]): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [startNodeId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const outgoing = edges.filter((e) => e.source === current);
+    for (const edge of outgoing) {
+      if (!descendants.has(edge.target)) {
+        descendants.add(edge.target);
+        queue.push(edge.target);
+      }
+    }
+  }
+
+  return descendants;
+}
+
 
 /**
  * Determines if a node is ready to execute (all dependencies satisfied)
