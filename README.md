@@ -138,6 +138,11 @@ File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. S
 - **Piped Outputs**: Returns parsed JSON response data and status codes, allowing any 3rd-party service to connect seamlessly to downstream LLM and media nodes
 - **Safety & Timeout**: Built-in 15s timeout guard with `AbortController` and protocol verification
 
+### Conditional / Branch Node (Dynamic Workflow Logic)
+- **Dual Output Branches**: Dedicated `True` and `False` source handles for dynamic path execution
+- **Rich Operator Suite**: Supports `equals`, `not_equals`, `contains`, `not_contains`, `greater_than`, `less_than`, `is_empty`, and `is_not_empty`
+- **Smart DAG Pruning**: The execution planner dynamically evaluates upstream values and automatically skips downstream nodes on the inactive branch, enabling true cyclical and conditional pipelines
+
 ## Workflow Features
 
 - **Drag & Drop Nodes**: Add nodes from sidebar to canvas
