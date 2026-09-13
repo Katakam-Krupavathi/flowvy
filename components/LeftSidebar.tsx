@@ -1,7 +1,7 @@
 "use client";
 
 import { useWorkflowStore } from "@/lib/store";
-import { Plus, FileText, Image, Video, Brain, Crop, Film, Globe } from "lucide-react";
+import { Plus, FileText, Image, Video, Brain, Crop, Film, Globe, GitBranch } from "lucide-react";
 import { useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Node } from "reactflow";
@@ -124,6 +124,24 @@ export default function LeftSidebar() {
             url: "text",
             headers: "text",
             body: "text",
+          },
+        }),
+    },
+    {
+      type: "conditional",
+      label: "Condition / Branch",
+      icon: GitBranch,
+      onClick: () =>
+        createNode("conditional", "Condition / Branch", {
+          value: "",
+          operator: "equals",
+          compareValue: "",
+          outputType: "text",
+          outputTypes: { true: "text", false: "text" },
+          inputType: "text",
+          inputTypes: {
+            value: "text",
+            compareValue: "text",
           },
         }),
     },
