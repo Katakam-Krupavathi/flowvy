@@ -7,7 +7,7 @@ import { z } from "zod";
 import { createExecutionPlan, collectNodeInputs, cleanupStaleRuns } from "@/lib/workflow-execution";
 import { cropImageFF } from "@/lib/tasks/crop-image";
 import { extractFrameFF } from "@/lib/tasks/extract-frame";
-import { callGemini } from "@/lib/llm";
+import { callLLM } from "@/lib/llm";
 
 const executeSchema = z.object({
   workflowId: z.string(),
@@ -187,6 +187,10 @@ export async function POST(request: NextRequest) {
                 break;
               }
               case "llm": {
+                const provider =
+                  (inputs.provider as any) ??
+                  rfNode.data?.provider ??
+                  "gemini";
                 const systemPrompt =
                   (inputs.system_prompt as string) ??
                   (inputs.systemPrompt as string) ??
@@ -197,7 +201,7 @@ export async function POST(request: NextRequest) {
                   (inputs.userMessage as string) ??
                   rfNode.data?.userMessage ??
                   "";
-                const model = rfNode.data?.model || "gemini-1.5-flash";
+                const model = rfNode.data?.model || (provider === "openai" ? "gpt-4o-mini" : provider === "anthropic" ? "claude-3-5-sonnet-20241022" : "gemini-1.5-flash");
 
                 const imagesInput = inputs.images;
                 const images: string[] = Array.isArray(imagesInput)
@@ -219,14 +223,20 @@ export async function POST(request: NextRequest) {
                       return fallbacks.filter(Boolean);
                     })();
 
-                const result = await callGemini({
+                const result = await callLLM({
+                  provider,
                   model,
                   systemPrompt,
                   userMessage,
                   images: imageCandidates,
                 });
 
-                outputs = { output: result.text, model: result.model || model };
+                outputs = {
+                  output: result.text,
+                  model: result.model || model,
+                  provider: result.provider,
+                  usage: result.usage,
+                };
                 break;
               }
               default: {
