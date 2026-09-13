@@ -116,12 +116,22 @@ export default function RightSidebar() {
     };
     // Initial fetch
     fetchRuns();
-    // Poll while sidebar open
+
+    // Instant SSE updates on execution events
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`/api/workflows/${workflowId}/runs/stream`);
+      eventSource.addEventListener("workflow:complete", () => fetchRuns());
+      eventSource.addEventListener("workflow:start", () => fetchRuns());
+    } catch {}
+
+    // Fallback refresh interval when open
     if (rightSidebarOpen && workflowId) {
-      interval = setInterval(fetchRuns, 2000);
+      interval = setInterval(fetchRuns, 8000);
     }
     return () => {
       if (interval) clearInterval(interval);
+      if (eventSource) eventSource.close();
     };
   }, [workflowId, rightSidebarOpen, setRuns]);
 

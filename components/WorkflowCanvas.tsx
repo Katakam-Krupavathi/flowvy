@@ -68,6 +68,68 @@ export default function WorkflowCanvas() {
     setEdgesState(storeEdges);
   }, [storeEdges, setEdgesState]);
 
+  // Real-time SSE execution stream subscription
+  useEffect(() => {
+    if (!workflowId) return;
+
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`/api/workflows/${workflowId}/runs/stream`);
+
+      eventSource.addEventListener("node:start", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.nodeId) {
+            useWorkflowStore.getState().updateNode(data.nodeId, { running: true });
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("node:complete", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.nodeId) {
+            const updates: Record<string, any> = {
+              running: false,
+              ...(data.outputs || {}),
+            };
+            if (data.outputs?.output !== undefined) {
+              updates.response = data.outputs.output;
+              updates.output = data.outputs.output;
+            }
+            if (data.outputs?.outputUrl !== undefined) {
+              updates.outputUrl = data.outputs.outputUrl;
+            }
+            if (data.usage) {
+              updates.usage = data.usage;
+            }
+            useWorkflowStore.getState().updateNode(data.nodeId, updates);
+          }
+        } catch {}
+      });
+
+      eventSource.addEventListener("node:error", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.nodeId) {
+            useWorkflowStore.getState().updateNode(data.nodeId, {
+              running: false,
+              error: data.error,
+            });
+          }
+        } catch {}
+      });
+    } catch (err) {
+      console.error("Failed to connect SSE stream:", err);
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [workflowId]);
+
   const onNodesChangeWrapper = useCallback(
     (changes: any) => {
       onNodesChange(changes);
