@@ -6,6 +6,7 @@ import { runLLM } from "@/lib/tasks/llm";
 import { prisma } from "@/lib/db";
 
 const llmSchema = z.object({
+  provider: z.enum(["gemini", "openai", "anthropic"]).optional(),
   systemPrompt: z.string().optional(),
   userMessage: z.string(),
   images: z.array(z.string()).optional(),
@@ -25,7 +26,8 @@ export async function POST(request: NextRequest) {
     const data = llmSchema.parse(body);
 
     const result = await runLLM({
-      model: data.model || "gemini-1.5-flash",
+      provider: data.provider,
+      model: data.model,
       systemPrompt: data.systemPrompt,
       userMessage: data.userMessage,
       images: data.images,
@@ -62,6 +64,8 @@ export async function POST(request: NextRequest) {
               nodeType: "llm",
               status: "RUNNING",
               inputs: {
+                provider: data.provider || "gemini",
+                model: data.model,
                 system_prompt: data.systemPrompt || null,
                 user_message: data.userMessage,
                 images: data.images || [],
@@ -72,7 +76,12 @@ export async function POST(request: NextRequest) {
             where: { id: nodeRun.id },
             data: {
               status: "SUCCESS",
-              outputs: { output: result.output, model: result.model },
+              outputs: {
+                output: result.output,
+                model: result.model,
+                provider: result.provider,
+                usage: result.usage,
+              },
               duration: result.duration,
               completedAt: new Date(),
             },
@@ -95,6 +104,8 @@ export async function POST(request: NextRequest) {
       success: true,
       output: result.output,
       model: result.model,
+      provider: result.provider,
+      usage: result.usage,
       duration: result.duration,
     });
   } catch (err: any) {
