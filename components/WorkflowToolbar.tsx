@@ -1,10 +1,12 @@
 "use client";
 
 import { useWorkflowStore } from "@/lib/store";
-import { Save, Download, Upload, Play, FileText } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { Save, Download, Upload, Play, FileText, LayoutTemplate } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { exportWorkflowToJSON, downloadWorkflowJSON, loadWorkflowFromFile } from "@/lib/workflow-persistence";
 import { createSampleWorkflow } from "@/lib/sample-workflow";
+import TemplateGalleryModal from "./TemplateGalleryModal";
+
 export default function WorkflowToolbar() {
   const {
     nodes,
@@ -18,6 +20,7 @@ export default function WorkflowToolbar() {
     setRuns,
   } = useWorkflowStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   const handleSave = useCallback(async () => {
     try {
@@ -185,13 +188,26 @@ export default function WorkflowToolbar() {
       </button>
 
       <button
+        onClick={() => setGalleryOpen(true)}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800/80 hover:to-indigo-800/80 text-purple-200 rounded-lg transition-all text-sm border border-purple-500/40 shadow"
+      >
+        <LayoutTemplate className="w-4 h-4 text-purple-400" />
+        Templates
+      </button>
+
+      <button
         onClick={handleRun}
         disabled={!workflowId}
-        className="flex items-center gap-2 px-4 py-2 bg-[#10b981] hover:bg-[#059669] disabled:bg-[#555] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
+        className="flex items-center gap-2 px-4 py-2 bg-[#10b981] hover:bg-[#059669] disabled:bg-[#555] disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm shadow"
       >
         <Play className="w-4 h-4" />
         Run Workflow
       </button>
+
+      <TemplateGalleryModal
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+      />
     </div>
   );
 }
