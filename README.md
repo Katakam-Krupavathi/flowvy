@@ -156,6 +156,15 @@ File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. S
 - **Parallel Execution**: Independent branches execute concurrently
 - **Workflow Persistence**: Save/load workflows to database
 - **Export/Import**: Export workflows as JSON
+- **Template Gallery & Library**: Curated starter templates (e.g., Multimodal Video Analysis, Automated Translation & Enrichment, REST API Webhook Automation, Smart Vision QA) plus custom parameterized workflow export and 1-click instantiation
+
+## Template Library & Gallery
+
+Flowvy includes a built-in **Template Gallery** accessible via the top toolbar:
+- **Curated Starter Templates**: Pre-configured production-grade workflows for video analysis, multi-provider LLM pipelines, API integrations, and conditional logic.
+- **Custom Template Export**: Save any custom canvas layout as a parameterized reusable template stored in your browser or exported as JSON.
+- **1-Click Instantiation**: Automatically duplicates template graphs with regenerated unique node and edge IDs, preventing ID collisions.
+- **Marketplace Ready**: Built with a clean JSON schema prepared for future community sharing and cloud marketplace publishing.
 
 ## Workflow History & Cost Analytics
 
