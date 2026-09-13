@@ -112,10 +112,15 @@ File upload via Transloadit or direct image URL. Accepts: jpg, jpeg, png, webp, 
 ### Upload Video Node
 File upload via Transloadit or direct video URL. Accepts: mp4, mov, webm, m4v. Shows video player preview after upload.
 
-### Run Any LLM Node
-- Model selector dropdown (Gemini 1.5 Flash by default)
-- Accepts system prompt, user message, and images (supports multiple multimodal inputs)
-- Displays response inline on the node
+### Run Any LLM Node (Multi-Provider)
+- **Multi-Provider Support**: Choose between **Google Gemini**, **OpenAI**, and **Anthropic Claude** on a per-node basis
+- **Supported Models**:
+  - Google Gemini (`gemini-1.5-flash`, `gemini-1.5-flash-latest`, `gemini-2.0-flash`, `gemini-1.5-pro`)
+  - OpenAI (`gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `o1-mini`)
+  - Anthropic (`claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`)
+- **Multimodal**: Accepts system prompts, user messages, and multiple images (base64 data URIs or remote URLs)
+- **Token & Cost Tracking**: Live estimation of prompt tokens, completion tokens, and real-time execution cost ($ USD)
+- **Inline Preview**: Displays responses and token usage badges directly on the canvas node
 
 ### Crop Image Node
 - Accepts image input (URL or data URI)
