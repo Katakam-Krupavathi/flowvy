@@ -15,7 +15,8 @@ export type NodeType =
   | "llm"
   | "cropImage"
   | "extractFrame"
-  | "httpRequest";
+  | "httpRequest"
+  | "conditional";
 
 export interface WorkflowData {
   nodes: WorkflowNode[];
@@ -164,4 +165,28 @@ export interface HttpRequestNodeData {
     body?: boolean;
   };
 }
+
+export type ConditionOperator =
+  | "equals"
+  | "not_equals"
+  | "contains"
+  | "not_contains"
+  | "greater_than"
+  | "less_than"
+  | "is_empty"
+  | "is_not_empty";
+
+export interface ConditionalNodeData {
+  value?: string;
+  operator: ConditionOperator;
+  compareValue?: string;
+  result?: boolean;
+  output?: string;
+  running?: boolean;
+  connected?: {
+    value?: boolean;
+    compareValue?: boolean;
+  };
+}
+
 
