@@ -259,6 +259,80 @@ export const STARTER_TEMPLATES: WorkflowTemplate[] = [
       },
     ],
   },
+  {
+    id: "template-video-frame-analysis",
+    name: "Video Keyframe Extraction & Visual QA",
+    description: "Extract a keyframe at any timestamp from video and analyze the scene with multimodal AI.",
+    version: "1.0.0",
+    category: "Media Processing",
+    tags: ["video", "ffmpeg", "keyframe", "multimodal"],
+    author: "Flowvy Core",
+    nodes: [
+      {
+        id: "video-1",
+        type: "uploadVideo",
+        position: { x: 80, y: 120 },
+        data: {
+          label: "Input Video",
+          nodeType: "uploadVideo",
+          outputType: "video",
+          outputTypes: { output: "video" },
+        },
+      },
+      {
+        id: "frame-2",
+        type: "extractFrame",
+        position: { x: 400, y: 120 },
+        data: {
+          label: "Extract Frame",
+          nodeType: "extractFrame",
+          timestamp: 2.5,
+          outputType: "image",
+          outputTypes: { output: "image" },
+          inputType: "video",
+        },
+      },
+      {
+        id: "llm-3",
+        type: "llm",
+        position: { x: 720, y: 100 },
+        data: {
+          label: "Scene Inspector",
+          nodeType: "llm",
+          provider: "gemini",
+          model: "gemini-1.5-flash",
+          systemPrompt: "You are an expert video frame analyst. Describe the actions, objects, and setting shown in this video keyframe.",
+          userMessage: "What is happening in this keyframe?",
+          outputType: "text",
+          outputTypes: { output: "text" },
+          inputType: "text",
+          inputTypes: {
+            system_prompt: "text",
+            user_message: "text",
+            images: "image",
+          },
+        },
+      },
+    ],
+    edges: [
+      {
+        id: "e-vid-frame",
+        source: "video-1",
+        target: "frame-2",
+        targetHandle: "video_url",
+        style: { stroke: "#3b82f6", strokeWidth: 2 },
+        animated: true,
+      },
+      {
+        id: "e-frame-llm",
+        source: "frame-2",
+        target: "llm-3",
+        targetHandle: "images",
+        style: { stroke: "#9333ea", strokeWidth: 2 },
+        animated: true,
+      },
+    ],
+  },
 ];
 
 const LOCAL_STORAGE_CUSTOM_TEMPLATES_KEY = "flowvy_custom_templates";
